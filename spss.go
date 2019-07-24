@@ -1,12 +1,5 @@
 package spss
 
-import (
-    "bytes"
-    "io"
-    "os"
-    "strings"
-)
-
 // Use of this source code is governed by a MIT license
 // The license can be found in the LICENSE file.
 
@@ -28,34 +21,22 @@ var TagSeparator = ","
 
 var spssReader = DefaultSPSSReader
 
-func DefaultSPSSReader(in io.Reader) SPSSReader {
-    return NewReader(in)
+func DefaultSPSSReader(in string) SPSSReader {
+	return NewReader(in)
 }
 
-func SetSPSSReader(reader func(io.Reader) SPSSReader) {
-    spssReader = reader
+func SetSPSSReader(reader func(string) SPSSReader) {
+	spssReader = reader
 }
 
-func getSPSSReader(in io.Reader) SPSSReader {
-    return spssReader(in)
+func getSPSSReader(in string) SPSSReader {
+	return spssReader(in)
 }
 
-// UnmarshalFile parses the CSV from the file in the interface.
-func UnmarshalFile(in *os.File, out interface{}) error {
-    return Unmarshal(in, out)
-}
-
-// UnmarshalString parses the CSV from the string in the interface.
-func UnmarshalString(in string, out interface{}) error {
-    return Unmarshal(strings.NewReader(in), out)
-}
-
-// UnmarshalBytes parses the CSV from the bytes in the interface.
-func UnmarshalBytes(in []byte, out interface{}) error {
-    return Unmarshal(bytes.NewReader(in), out)
-}
-
-// Unmarshal parses the CSV from the reader in the interface.
-func Unmarshal(in io.Reader, out interface{}) error {
-    return readTo(newSimpleDecoderFromReader(in), out)
+func UnmarshalFile(in string, out interface{}) error {
+	r := Import(in)
+	if r != 0 {
+		panic("Parse of " + in + " failed")
+	}
+	return readTo(newSimpleDecoderFromReader(in), out)
 }

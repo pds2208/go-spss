@@ -3,63 +3,85 @@ package spss
 // #cgo amd64 CFLAGS: -g
 // #cgo LDFLAGS: -lreadstat
 // #include <stdlib.h>
-// #include "import_sav.h"
+// #include "sav_reader.h"
 import "C"
 
 import (
-    "bufio"
-    "fmt"
-    "io"
-    "unsafe"
+	"bytes"
+	"io"
+	"strings"
+	"unsafe"
 )
 
-type Line string
-
-var lines [] Line
-
-type headerLine struct {
-    vType    int
-    position int
-}
-
-var headerItems = make(map[string]headerLine)
+var lines = make([]bytes.Buffer, 0)
+var headerItems bytes.Buffer
 
 //export goAddLine
-func goAddLine(str *C.char) { lines = append(lines, C.GoString(str)) }
+func goAddLine(str *C.char) {
+	lines = append(lines, *bytes.NewBufferString(C.GoString(str)))
+}
 
 //export goAddHeaderLine
 func goAddHeaderLine(pos C.int, name *C.char, varType C.int, end C.int) {
-    if int(end) == 1 { // we are done
-        fmt.Printf("Header %v", headerItems)
-    } else {
-        headerItems[C.GoString(name)] = headerLine{int(varType), int(pos)}
-    }
+	if int(end) == 1 { // we are done
+		headerItems.WriteString("\n")
+		lines = append(lines, headerItems)
+	} else {
+		headerItems.WriteString(C.GoString(name))
+		headerItems.WriteString(",")
+	}
 }
 
-func Import(fileName ImportFile) int {
-    name := C.CString(fileName)
-    defer C.free(unsafe.Pointer(name))
+func Import(fileName string) int {
+	name := C.CString(fileName)
+	defer C.free(unsafe.Pointer(name))
 
-    res := C.parse_sav(name)
-    if res != 0 {
-        return 1
-    }
+	res := C.parse_sav(name)
+	if res != 0 {
+		return 1
+	}
 
-    return 0
+	return 0
 }
 
 type Reader struct {
-    r *bufio.Reader
+	fileName    string
+	currentLine int
+	eof         bool
 }
 
-func NewReader(r io.Reader) *Reader {
-    return &Reader{r: bufio.NewReader(r)}
+func NewReader(f string) *Reader {
+	return &Reader{fileName: f, currentLine: 0, eof: false}
 }
 
 func (r *Reader) Read() ([]string, error) {
 
+	if len(lines) == r.currentLine-1 {
+		r.eof = true
+	}
+
+	if r.eof {
+		return nil, io.EOF
+	}
+
+	str := lines[r.currentLine].String()
+	r.currentLine++
+	return strings.Split(str, TagSeparator), nil
 }
 
 func (r *Reader) ReadAll() ([][]string, error) {
+	if r.eof {
+		return nil, io.EOF
+	}
 
+	r.eof = true
+
+	str := make([][]string, 0)
+
+	for _, l := range lines {
+		s := strings.Split(l.String(), TagSeparator)
+		str = append(str, s)
+	}
+
+	return str, nil
 }
