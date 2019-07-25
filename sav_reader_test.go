@@ -11,7 +11,7 @@ type SpssFile struct {
 	Version string  `spss:"Version"`
 }
 
-func Test_spss(t *testing.T) {
+func Test_reader(t *testing.T) {
 
 	var spssFile []*SpssFile
 
