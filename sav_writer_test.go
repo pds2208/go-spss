@@ -8,21 +8,20 @@ import (
 func Test_writer(t *testing.T) {
 
 	header := []SavHeader{
-		{READSTAT_TYPE_STRING, "ColumnOne", "ColumnOne Label"},
-		{READSTAT_TYPE_DOUBLE, "ColumnTwo", "ColumnTwo Label"},
+		{ReadstatTypeString, "ColumnOne", "ColumnOne Label"},
+		{ReadstatTypeDouble, "ColumnTwo", "ColumnTwo Label"},
 	}
 
-	vs := "This is item one"
-	vd := 22.99
-
 	data := []SavData{
-		{READSTAT_TYPE_STRING, &vs},
-		{READSTAT_TYPE_DOUBLE, &vd},
+		{ReadstatTypeString, "This is item one"},
+		{ReadstatTypeDouble, 22.99},
+		{ReadstatTypeString, "This is item Two"},
+		{ReadstatTypeDouble, 222.99},
 	}
 
 	val := ExportSavFile("/Users/paul/Desktop/test_output.sav", "Test SAV from GO",
 		header, data)
 
-	fmt.Println("A finished", val)
+	fmt.Println("Finished, return value: ", val)
 
 }

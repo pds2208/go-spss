@@ -1,25 +1,33 @@
 package spss
 
-// Use of this source code is governed by a MIT license
-// The license can be found in the LICENSE file.
+import (
+	"bytes"
+	"encoding/csv"
+	"io"
+	"os"
+)
 
-// The GoSPSS package aims to provide  SPSS serialization and deserialization
+/*
+Use of this source code is governed by a MIT license
+The license can be found in the LICENSE file.
 
-// FailIfUnmatchedStructTags indicates whether it is considered an error when there is an unmatched
-// struct tag.
+The GoSPSS package aims to provide  SPSS serialisation and deserialisation
+*/
+
 var FailIfUnmatchedStructTags = true
 
-// FailIfDoubleHeaderNames indicates whether it is considered an error when a header name is repeated
-// in the csv header.
 var FailIfDoubleHeaderNames = false
 
-// ShouldAlignDuplicateHeadersWithStructFieldOrder indicates whether we should align duplicate CSV
-// headers per their alignment in the struct definition.
 var ShouldAlignDuplicateHeadersWithStructFieldOrder = false
 
 var TagSeparator = ","
 
 var spssReader = DefaultSPSSReader
+var selfCSVWriter = DefaultSPSSWriter
+
+func DefaultSPSSWriter(out io.Writer) *SafeSPSSWriter {
+	return NewSafeSPSSWriter(csv.NewWriter(out))
+}
 
 func DefaultSPSSReader(in string) SPSSReader {
 	return NewReader(in)
@@ -39,4 +47,37 @@ func UnmarshalFile(in string, out interface{}) error {
 		panic("Parse of " + in + " failed")
 	}
 	return readTo(newSimpleDecoderFromReader(in), out)
+}
+
+func MarshalFile(in interface{}, file *os.File) (err error) {
+	return Marshal(in, file)
+}
+
+func MarshalString(in interface{}) (out string, err error) {
+	bufferString := bytes.NewBufferString(out)
+	if err := Marshal(in, bufferString); err != nil {
+		return "", err
+	}
+	return bufferString.String(), nil
+}
+
+func MarshalBytes(in interface{}) (out []byte, err error) {
+	bufferString := bytes.NewBuffer(out)
+	if err := Marshal(in, bufferString); err != nil {
+		return nil, err
+	}
+	return bufferString.Bytes(), nil
+}
+
+func Marshal(in interface{}, out io.Writer) (err error) {
+	writer := getSPSSWriter(out)
+	return writeTo(writer, in, false)
+}
+
+func SetSPSSWriter(csvWriter func(io.Writer) *SafeSPSSWriter) {
+	selfCSVWriter = csvWriter
+}
+
+func getSPSSWriter(out io.Writer) *SafeSPSSWriter {
+	return selfCSVWriter(out)
 }
