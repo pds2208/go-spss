@@ -38,6 +38,7 @@ int save_sav(const char *output_file, const char *label, SavHeader **sav_header,
   readstat_begin_writing_sav(writer, &fd, data_rows);
 
   printf("data_rows: %d\n", data_rows);
+
   for (int i = 0; i < data_rows; i++) {
     readstat_begin_row(writer);
 

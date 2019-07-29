@@ -5,19 +5,44 @@ import (
 	"testing"
 )
 
+type SpssWriteFile struct {
+	Shiftno float64 `spss:"Shiftno"`
+	Serial  float64 `spss:"Serial"`
+	Version string  `spss:"Version"`
+}
+
+func createHeader(wr []SpssWriteFile) []SavHeader {
+	header := make([]SavHeader, 0)
+
+	header = append(header, SavHeader{ReadstatTypeDouble, "Shiftno", "Shiftno Label"})
+	header = append(header, SavHeader{ReadstatTypeDouble, "Serial", "Serial Label"})
+	header = append(header, SavHeader{ReadstatTypeString, "Version", "Version Label"})
+
+	return header
+}
+
+func createData(wr []SpssWriteFile) []SavData {
+	type SavData struct {
+		Value []interface{}
+	}
+
+	data := make([]SavData, 0)
+	for _, j := range wr {
+		data = append(data, SavData{j.Shiftno, j.Serial, j.Version})
+	}
+
+	return data
+}
+
 func Test_writer(t *testing.T) {
 
-	header := []SavHeader{
-		{ReadstatTypeString, "ColumnOne", "ColumnOne Label"},
-		{ReadstatTypeDouble, "ColumnTwo", "ColumnTwo Label"},
+	wr := []SpssWriteFile{
+		{1.0, 123456.00, "v1"},
+		{2.0, 789012.00, "v1"},
 	}
 
-	data := []SavData{
-		{ReadstatTypeString, "This is item one"},
-		{ReadstatTypeDouble, 22.99},
-		{ReadstatTypeString, "This is item Two"},
-		{ReadstatTypeDouble, 222.99},
-	}
+	header := createHeader(wr)
+	data := createData(wr)
 
 	val := ExportSavFile("/Users/paul/Desktop/test_output.sav", "Test SAV from GO",
 		header, data)

@@ -14,17 +14,13 @@ typedef struct {
     readstat_variable_t *variable;
 } SavHeader;
 
-typedef struct  {
+typedef struct {
     const int sav_type;
+
     const char *string_value;
     const int int_value;
     const float float_value;
     const double double_value;
-} SavRow;
-
-typedef struct {
-    const int num_rows;
-    SavRow *sav_rows[];
 } SavData;
 
 int save_sav(const char *output_file, const char *label,
