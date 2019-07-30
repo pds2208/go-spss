@@ -11,24 +11,21 @@ type SpssWriteFile struct {
 	Version string  `spss:"Version"`
 }
 
-func createHeader(wr []SpssWriteFile) []SavHeader {
-	header := make([]SavHeader, 0)
+func createHeader(wr []SpssWriteFile) []Header {
+	header := make([]Header, 0)
 
-	header = append(header, SavHeader{ReadstatTypeDouble, "Shiftno", "Shiftno Label"})
-	header = append(header, SavHeader{ReadstatTypeDouble, "Serial", "Serial Label"})
-	header = append(header, SavHeader{ReadstatTypeString, "Version", "Version Label"})
+	header = append(header, Header{ReadstatTypeDouble, "Shiftno", "Shiftno Label"})
+	header = append(header, Header{ReadstatTypeDouble, "Serial", "Serial Label"})
+	header = append(header, Header{ReadstatTypeString, "Version", "Version Label"})
 
 	return header
 }
 
-func createData(wr []SpssWriteFile) []SavData {
-	type SavData struct {
-		Value []interface{}
-	}
+func createData(wr []SpssWriteFile) []DataItem {
 
-	data := make([]SavData, 0)
+	data := make([]DataItem, 0)
 	for _, j := range wr {
-		data = append(data, SavData{j.Shiftno, j.Serial, j.Version})
+		data = append(data, DataItem{[]interface{}{j.Shiftno, j.Serial, j.Version}})
 	}
 
 	return data
@@ -38,7 +35,8 @@ func Test_writer(t *testing.T) {
 
 	wr := []SpssWriteFile{
 		{1.0, 123456.00, "v1"},
-		{2.0, 789012.00, "v1"},
+		{2.0, 789012.00, "v2"},
+		{3.0, 789888.00, "v2"},
 	}
 
 	header := createHeader(wr)
