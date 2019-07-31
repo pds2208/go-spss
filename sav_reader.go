@@ -32,6 +32,18 @@ func goAddHeaderLine(pos C.int, name *C.char, varType C.int, end C.int) {
 	}
 }
 
+func GetHeader(fileName string) int {
+	name := C.CString(fileName)
+	defer C.free(unsafe.Pointer(name))
+
+	res := C.parse_sav(name)
+	if res != 0 {
+		return 1
+	}
+
+	return 0
+}
+
 func Import(fileName string) int {
 	name := C.CString(fileName)
 	defer C.free(unsafe.Pointer(name))

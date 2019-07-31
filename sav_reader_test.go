@@ -1,7 +1,6 @@
 package spss
 
 import (
-	"fmt"
 	"testing"
 )
 
@@ -19,11 +18,12 @@ func Test_reader(t *testing.T) {
 		panic(err)
 	}
 
+	t.Logf("Starting test - reader")
+
 	i := len(spssFile)
 
-	for _, client := range spssFile {
-		fmt.Printf("shiftno: %f, serial: %f, version: %s\n", client.Shiftno, client.Serial, client.Version)
-	}
-	fmt.Printf("Total Items: %d\n", i)
+	t.Logf("Total Items: %d\n", i)
+
+	t.Logf("Test finished - reader")
 
 }

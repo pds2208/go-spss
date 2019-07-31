@@ -1,7 +1,6 @@
 package spss
 
 import (
-	"log"
 	"testing"
 )
 
@@ -19,10 +18,10 @@ func Test_writer(t *testing.T) {
 		{3.0, 789888.00, "v2"},
 	}
 
-	log.Printf("Starting test")
+	t.Logf("Starting test - writer")
 	err := WriteToSPSS("/Users/paul/Desktop/test_output.sav", &wr)
 	if err != nil {
 		panic(err)
 	}
-	log.Printf("Test finished")
+	t.Logf("Test finished - writer")
 }

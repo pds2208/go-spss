@@ -190,7 +190,7 @@ func readEach(decoder SimpleDecoder, c interface{}) error {
 	}
 	outInnerStructInfo := getStructInfo(outInnerType) // Get the inner struct info to get CSV annotations
 	if len(outInnerStructInfo.Fields) == 0 {
-		return errors.New("no csv struct tags found")
+		return errors.New("no spss struct tags found")
 	}
 	csvHeadersLabels := make(map[int]*fieldInfo, len(outInnerStructInfo.Fields)) // Used to store the correspondance header <-> position in CSV
 	headerCount := map[string]int{}
