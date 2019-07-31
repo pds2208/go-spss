@@ -32,12 +32,6 @@ func newSimpleDecoderFromReader(r string) SimpleDecoder {
 	return spssDecoder{getSPSSReader(r)}
 }
 
-// NewSimpleDecoderFromSPSSReader creates a SimpleDecoder, which may be passed
-// to the UnmarshalDecoder* family of functions, from a SPSS reader.
-func NewSimpleDecoderFromSPSSReader(r SPSSReader) SimpleDecoder {
-	return spssDecoder{r}
-}
-
 func (c spssDecoder) getSPSSRows() ([][]string, error) {
 	return c.ReadAll()
 }

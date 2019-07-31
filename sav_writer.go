@@ -27,7 +27,7 @@ type DataItem struct {
 	Value []interface{}
 }
 
-func ExportSavFile(fileName string, label string, headers []Header, data []DataItem) int {
+func Export(fileName string, label string, headers []Header, data []DataItem) int {
 
 	numHeaders := len(headers)
 	cHeaders := (*[1 << 28]*C.file_header)(C.malloc(C.size_t(C.sizeof_file_header * numHeaders)))

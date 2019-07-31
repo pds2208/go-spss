@@ -15,11 +15,12 @@ func Test_reader(t *testing.T) {
 
 	var spssFile []*SpssFile
 
-	if err := UnmarshalFile("testdata/ips1710bv2.sav", &spssFile); err != nil { // Load spssFile from file
+	if err := ReadFromSPSS("testdata/ips1710bv2.sav", &spssFile); err != nil { // Load spssFile from file
 		panic(err)
 	}
 
 	i := len(spssFile)
+
 	for _, client := range spssFile {
 		fmt.Printf("shiftno: %f, serial: %f, version: %s\n", client.Shiftno, client.Serial, client.Version)
 	}
