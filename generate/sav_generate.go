@@ -8,9 +8,12 @@ import "C"
 
 import (
 	"bufio"
+	"bytes"
 	"flag"
 	"fmt"
+	"go/format"
 	"os"
+	"unicode"
 	"unsafe"
 )
 
@@ -60,21 +63,27 @@ func main() {
 
 	input := flag.String("input", "", "input file name")
 	output := flag.String("output", "", "output file name")
-	structName := flag.String("struct", "Struct", "structure name")
-	packageName := flag.String("package", "LFS", "package name")
+	structName := flag.String("struct", "SpssDataItem", "structure name")
+	packageName := flag.String("package", "lfs", "package name")
 
 	flag.Parse()
+
+	if *output == "" || *input == "" {
+		flag.PrintDefaults()
+		os.Exit(1)
+	}
 
 	f, err := os.Create(*output)
 	check(err)
 
 	defer f.Close()
 
-	w := bufio.NewWriter(f)
+	var b bytes.Buffer
+	w := bufio.NewWriter(&b)
+
+	//w := bufio.NewWriter(f)
 
 	Generate(*input)
-
-	fmt.Printf("Found %d Columns\n", len(header))
 
 	if len(header) == 0 {
 		fmt.Println("No items found in SPSS file. Is it Empty?")
@@ -85,19 +94,22 @@ func main() {
 	fmt.Fprintf(w, "type %s struct {\n", *structName)
 
 	for _, j := range header {
+		a := []rune(j.Name)
+		a[0] = unicode.ToUpper(a[0])
+		name := string(a)
 		switch j.VarType {
 		case ReadstatTypeString:
-			fmt.Fprintf(w, "    %s string \t`spss:\"%s\"`\n", j.Name, j.Name)
+			fmt.Fprintf(w, "    %s string \t`spss:\"%s\"`\n", name, j.Name)
 		case ReadstatTypeInt8:
-			fmt.Fprintf(w, "    %s int \t`spss:\"%s\"`\n", j.Name, j.Name)
+			fmt.Fprintf(w, "    %s int \t`spss:\"%s\"`\n", name, j.Name)
 		case ReadstatTypeInt16:
-			fmt.Fprintf(w, "    %s int \t`spss:\"%s\"`\n", j.Name, j.Name)
+			fmt.Fprintf(w, "    %s int \t`spss:\"%s\"`\n", name, j.Name)
 		case ReadstatTypeInt32:
-			fmt.Fprintf(w, "    %s int \t`spss:\"%s\"`\n", j.Name, j.Name)
+			fmt.Fprintf(w, "    %s int \t`spss:\"%s\"`\n", name, j.Name)
 		case ReadstatTypeFloat:
-			fmt.Fprintf(w, "    %s float \t`spss:\"%s\"`\n", j.Name, j.Name)
+			fmt.Fprintf(w, "    %s float \t`spss:\"%s\"`\n", name, j.Name)
 		case ReadstatTypeDouble:
-			fmt.Fprintf(w, "    %s float64 \t`spss:\"%s\"`\n", j.Name, j.Name)
+			fmt.Fprintf(w, "    %s float64 \t`spss:\"%s\"`\n", name, j.Name)
 		case ReadstatTypeStringRef:
 			panic("String references not supported")
 		}
@@ -105,4 +117,8 @@ func main() {
 
 	fmt.Fprintf(w, "}\n")
 	w.Flush()
+
+	content, err := format.Source(b.Bytes())
+
+	f.Write(content)
 }
