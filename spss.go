@@ -4,7 +4,7 @@ package spss
 Use of this source code is governed by a MIT license
 The license can be found in the LICENSE file.
 
-The GoSPSS package aims to provide  SPSS serialisation and deserialisation
+The go-spss package aims to provide SPSS serialisation and deserialisation
 */
 
 var FailIfUnmatchedStructTags = true
@@ -35,14 +35,14 @@ func ReadFromSPSS(in string, out interface{}) error {
 	return readTo(newSimpleDecoderFromReader(in), out)
 }
 
-func SetSPSSWriter(writer func(interface{}) SPSSWriter) {
+func SetSPSSWriter(writer func(interface{}) Writer) {
 	spssWriter = writer
 }
 
-func DefaultSPSSWriter(in interface{}) SPSSWriter {
+func DefaultSPSSWriter(in interface{}) Writer {
 	return FileOutput{in.(string)}
 }
 
 func WriteToSPSS(out string, in interface{}) error {
-	return spssWriter(out).Write()(in)
+	return spssWriter(out).Write(in)
 }
