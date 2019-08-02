@@ -143,7 +143,7 @@ func toUint(in interface{}) (uint64, error) {
 			return 0, nil
 		}
 
-		// support the float input
+		// support the float InputType
 		if strings.Contains(s, ".") {
 			f, err := strconv.ParseFloat(s, 64)
 			if err != nil {

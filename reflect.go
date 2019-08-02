@@ -6,16 +6,10 @@ import (
 	"sync"
 )
 
-// --------------------------------------------------------------------------
-// Reflection helpers
-
 type structInfo struct {
 	Fields []fieldInfo
 }
 
-// fieldInfo is a struct field that should be mapped to a SPSS column, or vice-versa
-// Each IndexChain element before the last is the index of an the embedded struct field
-// that defines Key as a tag
 type fieldInfo struct {
 	keys       []string
 	FieldType  reflect.Kind
@@ -66,16 +60,12 @@ func getFieldInfos(rType reflect.Type, parentIndexChain []int) []fieldInfo {
 
 		// if the field is a pointer to a struct, follow the pointer then create fieldinfo for each field
 		if field.Type.Kind() == reflect.Ptr && field.Type.Elem().Kind() == reflect.Struct {
-			// unless it implements marshalText or marshalCSV. Structs that implement this
-			// should result in one value and not have their fields exposed
 			if !(canMarshal(field.Type.Elem())) {
 				fieldsList = append(fieldsList, getFieldInfos(field.Type.Elem(), indexChain)...)
 			}
 		}
 		// if the field is a struct, create a fieldInfo for each of its fields
 		if field.Type.Kind() == reflect.Struct {
-			// unless it implements marshalText or marshalCSV. Structs that implement this
-			// should result in one value and not have their fields exposed
 			if !(canMarshal(field.Type)) {
 				fieldsList = append(fieldsList, getFieldInfos(field.Type, indexChain)...)
 			}

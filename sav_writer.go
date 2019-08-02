@@ -49,46 +49,53 @@ func Export(fileName string, label string, headers []Header, data []DataItem) in
 	for _, r := range data {
 
 		for j, col := range r.Value {
-			foo := (*C.data_item)(C.malloc(C.size_t(C.sizeof_data_item)))
+			dataItem := (*C.data_item)(C.malloc(C.size_t(C.sizeof_data_item)))
 
-			(*foo).sav_type = C.int(headers[j].SavType)
+			(*dataItem).sav_type = C.int(headers[j].SavType)
 
 			switch headers[j].SavType {
+
 			case ReadstatTypeString:
 				if _, ok := col.(string); !ok {
-					(*foo).string_value = C.CString(col.(string))
+					(*dataItem).string_value = C.CString(col.(string))
 					panic("Invalid type, string expected")
 				}
-				(*foo).string_value = C.CString(col.(string))
+				(*dataItem).string_value = C.CString(col.(string))
+
 			case ReadstatTypeInt8:
 				if _, ok := col.(int); !ok {
 					panic("Invalid type, int8 expected")
 				}
-				(*foo).int_value = C.int(col.(int))
+				(*dataItem).int_value = C.int(col.(int))
+
 			case ReadstatTypeInt16:
 				if _, ok := col.(int); !ok {
 					panic("Invalid type, int16 expected")
 				}
-				(*foo).int_value = C.int(col.(int))
+				(*dataItem).int_value = C.int(col.(int))
+
 			case ReadstatTypeInt32:
 				if _, ok := col.(int); !ok {
 					panic("Invalid type, int32 expected")
 				}
-				(*foo).int_value = C.int(col.(int))
+				(*dataItem).int_value = C.int(col.(int))
+
 			case ReadstatTypeFloat:
 				if _, ok := col.(float32); !ok {
 					panic("Invalid type, float32 expected")
 				}
-				(*foo).float_value = C.float(col.(float32))
+				(*dataItem).float_value = C.float(col.(float32))
+
 			case ReadstatTypeDouble:
 				if _, ok := col.(float64); !ok {
 					panic("Invalid type, double expected")
 				}
-				(*foo).double_value = C.double(col.(float64))
+				(*dataItem).double_value = C.double(col.(float64))
+
 			case ReadstatTypeStringRef:
 				panic("String references not supported")
 			}
-			cDataItem[cnt] = foo
+			cDataItem[cnt] = dataItem
 			cnt++
 		}
 	}

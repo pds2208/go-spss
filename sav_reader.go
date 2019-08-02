@@ -16,6 +16,11 @@ import (
 var lines = make([]bytes.Buffer, 0)
 var headerItems bytes.Buffer
 
+const (
+	EOL   = "\n"
+	COMMA = ","
+)
+
 //export goAddLine
 func goAddLine(str *C.char) {
 	lines = append(lines, *bytes.NewBufferString(C.GoString(str)))
@@ -24,11 +29,11 @@ func goAddLine(str *C.char) {
 //export goAddHeaderLine
 func goAddHeaderLine(pos C.int, name *C.char, varType C.int, end C.int) {
 	if int(end) == 1 { // we are done
-		headerItems.WriteString("\n")
+		headerItems.WriteString(EOL)
 		lines = append(lines, headerItems)
 	} else {
 		headerItems.WriteString(C.GoString(name))
-		headerItems.WriteString(",")
+		headerItems.WriteString(COMMA)
 	}
 }
 
