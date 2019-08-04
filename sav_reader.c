@@ -71,36 +71,36 @@ int handle_value(int obs_index, readstat_variable_t *variable, readstat_value_t 
 
     case READSTAT_TYPE_INT8:
       if (readstat_value_is_system_missing(value)) {
-        snprintf(buf, sizeof(buf), "%d", 0);
+        snprintf(buf, SAV_BUFFER_SIZE, "%d", 0);
       } else {
-        snprintf(buf, sizeof(buf), "%d", readstat_int8_value(value));
+        snprintf(buf, SAV_BUFFER_SIZE, "%d", readstat_int8_value(value));
       }
       add_to_buffer(buf, sav);
       break;
 
     case READSTAT_TYPE_INT16:
       if (readstat_value_is_system_missing(value)) {
-        snprintf(buf, sizeof(buf), "%d", 0);
+        snprintf(buf, SAV_BUFFER_SIZE, "%d", 0);
       } else {
-        snprintf(buf, sizeof(buf), "%d", readstat_int16_value(value));
+        snprintf(buf, SAV_BUFFER_SIZE, "%d", readstat_int16_value(value));
       }
       add_to_buffer(buf, sav);
       break;
 
     case READSTAT_TYPE_INT32:
       if (readstat_value_is_system_missing(value)) {
-        snprintf(buf, sizeof(buf), "%d", 0);
+        snprintf(buf, SAV_BUFFER_SIZE, "%d", 0);
       } else {
-        snprintf(buf, sizeof(buf), "%d", readstat_int32_value(value));
+        snprintf(buf, SAV_BUFFER_SIZE, "%d", readstat_int32_value(value));
       }
       add_to_buffer(buf, sav);
       break;
 
     case READSTAT_TYPE_FLOAT:
       if (readstat_value_is_system_missing(value)) {
-        snprintf(buf, sizeof(buf), "%f", 0.0);
+        snprintf(buf, SAV_BUFFER_SIZE, "%f", 0.0);
       } else {
-        snprintf(buf, sizeof(buf), "%f", readstat_float_value(value));
+        snprintf(buf, SAV_BUFFER_SIZE, "%f", readstat_float_value(value));
       }
       add_to_buffer(buf, sav);
 
@@ -108,9 +108,9 @@ int handle_value(int obs_index, readstat_variable_t *variable, readstat_value_t 
 
     case READSTAT_TYPE_DOUBLE:
       if (readstat_value_is_system_missing(value)) {
-        snprintf(buf, sizeof(buf), "%lf", 0.0);
+        snprintf(buf, SAV_BUFFER_SIZE, "%lf", 0.0);
       } else {
-        snprintf(buf, sizeof(buf), "%lf", readstat_double_value(value));
+        snprintf(buf, SAV_BUFFER_SIZE, "%lf", readstat_double_value(value));
       }
       add_to_buffer(buf, sav);
 
