@@ -7,17 +7,16 @@ import (
 	"strconv"
 )
 
-type InputType interface{}
-
 type Writer interface {
 	Write(rows interface{}) error
 }
 
+// Example buffered implementation
 type BufferOutput struct {
 	inputType string
 }
 
-// Example implementation
+// Example buffered implementation
 func (b BufferOutput) Write(rows interface{}) error {
 	return nil
 }

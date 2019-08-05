@@ -56,51 +56,51 @@ int handle_value(int obs_index, readstat_variable_t *variable, readstat_value_t 
   switch (type) {
     case READSTAT_TYPE_STRING:
       if (readstat_value_is_system_missing(value)) {
-        snprintf(buf, sizeof(buf), "\"\"");
+        snprintf(buf, SAV_BUFFER_SIZE, "\"\"");
       } else {
         // this will be the only place we can expect a value larger than the
         // existing SAV_BUFFER_SIZE we use snprintf as it's much faster
         if (sav->buffer_size <= strlen(readstat_string_value(value)) + 1) {
-          sav->buffer_size = strlen(readstat_string_value(value)) + SAV_BUFFER_SIZE;
+          sav->buffer_size = strlen(readstat_string_value(value)) + SAV_BUFFER_SIZE + 1;
           sav->buffer = realloc(sav->buffer, sav->buffer_size);
         }
-        snprintf(buf, sizeof(buf), "\"%s\"", readstat_string_value(value));
+        snprintf(buf, sav->buffer_size, "\"%s\"", readstat_string_value(value));
       }
       add_to_buffer(buf, sav);
       break;
 
     case READSTAT_TYPE_INT8:
       if (readstat_value_is_system_missing(value)) {
-        snprintf(buf, SAV_BUFFER_SIZE, "%d", 0);
+        snprintf(buf, sav->buffer_size, "%d", 0);
       } else {
-        snprintf(buf, SAV_BUFFER_SIZE, "%d", readstat_int8_value(value));
+        snprintf(buf, sav->buffer_size, "%d", readstat_int8_value(value));
       }
       add_to_buffer(buf, sav);
       break;
 
     case READSTAT_TYPE_INT16:
       if (readstat_value_is_system_missing(value)) {
-        snprintf(buf, SAV_BUFFER_SIZE, "%d", 0);
+        snprintf(buf, sav->buffer_size, "%d", 0);
       } else {
-        snprintf(buf, SAV_BUFFER_SIZE, "%d", readstat_int16_value(value));
+        snprintf(buf, sav->buffer_size, "%d", readstat_int16_value(value));
       }
       add_to_buffer(buf, sav);
       break;
 
     case READSTAT_TYPE_INT32:
       if (readstat_value_is_system_missing(value)) {
-        snprintf(buf, SAV_BUFFER_SIZE, "%d", 0);
+        snprintf(buf, sav->buffer_size, "%d", 0);
       } else {
-        snprintf(buf, SAV_BUFFER_SIZE, "%d", readstat_int32_value(value));
+        snprintf(buf, sav->buffer_size, "%d", readstat_int32_value(value));
       }
       add_to_buffer(buf, sav);
       break;
 
     case READSTAT_TYPE_FLOAT:
       if (readstat_value_is_system_missing(value)) {
-        snprintf(buf, SAV_BUFFER_SIZE, "%f", 0.0);
+        snprintf(buf, sav->buffer_size, "%f", 0.0);
       } else {
-        snprintf(buf, SAV_BUFFER_SIZE, "%f", readstat_float_value(value));
+        snprintf(buf, sav->buffer_size, "%f", readstat_float_value(value));
       }
       add_to_buffer(buf, sav);
 
@@ -108,9 +108,9 @@ int handle_value(int obs_index, readstat_variable_t *variable, readstat_value_t 
 
     case READSTAT_TYPE_DOUBLE:
       if (readstat_value_is_system_missing(value)) {
-        snprintf(buf, SAV_BUFFER_SIZE, "%lf", 0.0);
+        snprintf(buf, sav->buffer_size, "%lf", 0.0);
       } else {
-        snprintf(buf, SAV_BUFFER_SIZE, "%lf", readstat_double_value(value));
+        snprintf(buf, sav->buffer_size, "%lf", readstat_double_value(value));
       }
       add_to_buffer(buf, sav);
 

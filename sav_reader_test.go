@@ -14,7 +14,7 @@ func Test_reader(t *testing.T) {
 
 	var spssFile []*SpssFile
 
-	if err := ReadFromSPSS("testdata/ips1710bv2.sav", &spssFile); err != nil { // Load spssFile from file
+	if err := ReadFromSPSSFile("testdata/ips1710bv2.sav", &spssFile); err != nil { // Load spssFile from file
 		panic(err)
 	}
 

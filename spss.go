@@ -9,30 +9,21 @@ The go-spss package aims to provide SPSS serialisation and deserialisation
 
 var FailIfUnmatchedStructTags = true
 var FailIfDoubleHeaderNames = false
-var ShouldAlignDuplicateHeadersWithStructFieldOrder = false
 var TagSeparator = ","
 
 var spssReader = DefaultSPSSReader
 var spssWriter = DefaultSPSSWriter
 
-func DefaultSPSSReader(in string) SPSSReader {
-	return NewReader(in)
+func DefaultSPSSReader(in interface{}) Reader {
+	return FileInput{in.(string)}
 }
 
-func SetSPSSReader(reader func(string) SPSSReader) {
+func SetSPSSReader(reader func(interface{}) Reader) {
 	spssReader = reader
 }
 
-func getSPSSReader(in string) SPSSReader {
-	return spssReader(in)
-}
-
-func ReadFromSPSS(in string, out interface{}) error {
-	r := Import(in)
-	if r != 0 {
-		panic("Parse of " + in + " failed")
-	}
-	return readTo(newSimpleDecoderFromReader(in), out)
+func ReadFromSPSSFile(in string, out interface{}) error {
+	return spssReader(in).Read(out)
 }
 
 func SetSPSSWriter(writer func(interface{}) Writer) {
@@ -43,6 +34,6 @@ func DefaultSPSSWriter(in interface{}) Writer {
 	return FileOutput{in.(string)}
 }
 
-func WriteToSPSS(out string, in interface{}) error {
+func WriteToSPSSFile(out string, in interface{}) error {
 	return spssWriter(out).Write(in)
 }

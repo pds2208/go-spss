@@ -8,7 +8,7 @@ import "C"
 
 import (
 	"bytes"
-	"io"
+	"errors"
 	"strings"
 	"unsafe"
 )
@@ -49,50 +49,14 @@ func GetHeader(fileName string) int {
 	return 0
 }
 
-func Import(fileName string) int {
+func Import(fileName string) ([][]string, error) {
 	name := C.CString(fileName)
 	defer C.free(unsafe.Pointer(name))
 
 	res := C.parse_sav(name)
 	if res != 0 {
-		return 1
+		return nil, errors.New("read from SPSS file failed")
 	}
-
-	return 0
-}
-
-type Reader struct {
-	fileName    string
-	currentLine int
-	eof         bool
-}
-
-func NewReader(f string) *Reader {
-	return &Reader{fileName: f, currentLine: 0, eof: false}
-}
-
-func (r *Reader) Read() ([]string, error) {
-
-	if len(lines) == r.currentLine-1 {
-		r.eof = true
-	}
-
-	if r.eof {
-		return nil, io.EOF
-	}
-
-	str := lines[r.currentLine].String()
-	r.currentLine++
-	return strings.Split(str, TagSeparator), nil
-}
-
-func (r *Reader) ReadAll() ([][]string, error) {
-	if r.eof {
-		return nil, io.EOF
-	}
-
-	r.eof = true
-
 	str := make([][]string, 0)
 
 	for _, l := range lines {

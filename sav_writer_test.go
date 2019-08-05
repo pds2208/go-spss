@@ -19,7 +19,7 @@ func Test_writer(t *testing.T) {
 	}
 
 	t.Logf("Starting test - writer")
-	err := WriteToSPSS("/Users/paul/Desktop/test_output.sav", &wr)
+	err := WriteToSPSSFile("/Users/paul/Desktop/test_output.sav", &wr)
 	if err != nil {
 		panic(err)
 	}
