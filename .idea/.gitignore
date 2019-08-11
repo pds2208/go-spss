@@ -1,2 +1,8 @@
 # Default ignored files
 /workspace.xml
+/$PRODUCT_WORKSPACE_FILE$
+/go-spss.iml
+/misc.xml
+/modules.xml
+/inspectionProfiles/Project_Default.xml
+/vcs.xml
