@@ -101,6 +101,11 @@ func (f FileOutput) Write(rows interface{}) error {
 	}
 
 	val := Export(f.inputType, "Test SAV from GO", header, data)
+
+	if val != 0 {
+		return fmt.Errorf("cannot open or write to file: %s", f.inputType)
+	}
+
 	log.Printf("Finished writing to: %s, return value: %d", f.inputType, val)
 
 	return nil

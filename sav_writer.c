@@ -35,6 +35,10 @@ int save_sav(const char *output_file, const char *label, file_header **sav_heade
     }
 
     int fd = open(output_file, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+
+    if (fd == -1) {
+        return -1;
+    }
     readstat_begin_writing_sav(writer, &fd, data_rows);
 
     int cnt = 0;
