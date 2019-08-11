@@ -56,7 +56,7 @@ int handle_value(int obs_index, readstat_variable_t *variable, readstat_value_t 
   switch (type) {
     case READSTAT_TYPE_STRING:
       if (readstat_value_is_system_missing(value)) {
-        snprintf(buf, SAV_BUFFER_SIZE, "\"\"");
+        snprintf(buf, sav->buffer_size, "\"\"");
       } else {
         // this will be the only place we can expect a value larger than the
         // existing SAV_BUFFER_SIZE we use snprintf as it's much faster

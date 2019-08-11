@@ -1,7 +1,7 @@
 package spss
 
-// #cgo amd64 CFLAGS: -g
-// #cgo LDFLAGS: -lreadstat
+// #cgo amd64 CFLAGS: -g -IC:/msys64/mingw64/include
+// #cgo LDFLAGS: -LC:/msys64/mingw64/libs -lreadstat
 // #include <stdlib.h>
 // #include "sav_reader.h"
 import "C"
