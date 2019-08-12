@@ -38,7 +38,7 @@ func Test_dataset(t *testing.T) {
 
 	var spssFile []Mydataset
 
-	if err := spss.ReadFromSPSSFile("testdata/ips1710bv2.sav", &spssFile); err != nil { // Load spssFile from file
+	if err := ReadFromSPSSFile("testdata/ips1710bv2.sav", &spssFile); err != nil { // Load spssFile from file
 		panic(err)
 	}
 
