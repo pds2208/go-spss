@@ -11,6 +11,8 @@ var FailIfUnmatchedStructTags = true
 var FailIfDoubleHeaderNames = false
 var TagSeparator = ","
 
+const EOL = "\n"
+
 var spssReader = DefaultSPSSReader
 var spssWriter = DefaultSPSSWriter
 

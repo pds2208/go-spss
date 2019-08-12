@@ -40,7 +40,7 @@ func (d Dataset) Column(col int) ([]interface{}, error) {
 		return nil, fmt.Errorf("requested column: %d is out of range (total columns: %d)", col, len(d.columns))
 	}
 
-	cols := make([]interface{}, 0)
+	var cols []interface{}
 	for _, row := range d.rows {
 		cols = append(cols, row.rowValue[col])
 

@@ -98,7 +98,7 @@ func (f FileInput) Read(out interface{}) error {
 }
 
 func mismatchStructFields(structInfo []fieldInfo, headers []string) []string {
-	missing := make([]string, 0)
+	var missing []string
 	if len(structInfo) == 0 {
 		return missing
 	}

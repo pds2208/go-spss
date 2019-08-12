@@ -38,8 +38,8 @@ func (f FileOutput) Write(rows interface{}) error {
 	}
 
 	inInnerStructInfo := getStructInfo(inInnerType) // Get the inner struct info to get SPSS annotations
-	header := make([]Header, 0)
-	data := make([]DataItem, 0)
+	var header []Header
+	var data []DataItem
 
 	for _, fieldInfo := range inInnerStructInfo.Fields { // Used to write metadata rows SPSS
 
@@ -69,7 +69,7 @@ func (f FileOutput) Write(rows interface{}) error {
 
 	inLen := inValue.Len()
 	for i := 0; i < inLen; i++ { // Iterate over container rows
-		dataItem := make([]interface{}, 0)
+		var dataItem []interface{}
 		for j, fieldInfo := range inInnerStructInfo.Fields {
 			header[j].Label = ""
 			inInnerFieldValue, err := getInnerField(inValue.Index(i), inInnerWasPointer, fieldInfo.IndexChain) // Get the correct field header <-> position
