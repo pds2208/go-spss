@@ -1,4 +1,4 @@
-from golang:alpine
+FROM golang:latest
 
 WORKDIR /app
 
@@ -15,3 +15,4 @@ RUN apk add --update alpine-sdk autoconf automake build-base clang cmake \
 
 WORKDIR /data
 
+ENTRYPOINT ["/usr/local/bin/readstat"]

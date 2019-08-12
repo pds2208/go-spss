@@ -59,7 +59,8 @@ int handle_value(int obs_index, readstat_variable_t *variable, readstat_value_t 
         snprintf(buf, sav->buffer_size, "\"\"");
       } else {
         // this will be the only place we can expect a value larger than the
-        // existing SAV_BUFFER_SIZE we use snprintf as it's much faster
+        // existing SAV_BUFFER_SIZE
+        // We use snprintf as it's much faster
         if (sav->buffer_size <= strlen(readstat_string_value(value)) + 1) {
           sav->buffer_size = strlen(readstat_string_value(value)) + SAV_BUFFER_SIZE + 1;
           sav->buffer = realloc(sav->buffer, sav->buffer_size);
