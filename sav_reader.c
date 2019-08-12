@@ -2,11 +2,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "readstat.h"
 
+#include "readstat.h"
 #include "sav_reader.h"
 
-const int ACCOC_SIZE = 2 * 1024 * 1024;
+const int ACCOC_SIZE = 256 * 1024 * 1024;
 const int SAV_BUFFER_SIZE = 128;  // initial buffer size for a value, will grow if necessary
 
 void add_to_data(const char *d, struct Data *data) {

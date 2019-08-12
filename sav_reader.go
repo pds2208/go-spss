@@ -1,6 +1,6 @@
 package spss
 
-// #cgo windows amd64 CFLAGS: -g -IC:/msys64/mingw64/include
+// #cgo windows amd64 CFLAGS: -O3 -IC:/msys64/mingw64/include
 // #cgo darwin amd64 CFLAGS: -g
 // #cgo linux amd64 CFLAGS: -g
 // #cgo windows LDFLAGS: -LC:/msys64/mingw64/libs -lreadstat
