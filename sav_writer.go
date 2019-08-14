@@ -11,18 +11,8 @@ package spss
 import "C"
 import "unsafe"
 
-const (
-	ReadstatTypeString    = iota
-	ReadstatTypeInt8      = iota
-	ReadstatTypeInt16     = iota
-	ReadstatTypeInt32     = iota
-	ReadstatTypeFloat     = iota
-	ReadstatTypeDouble    = iota
-	ReadstatTypeStringRef = iota
-)
-
 type Header struct {
-	SavType int32
+	SavType ColumnType
 	Name    string
 	Label   string
 }
@@ -115,7 +105,7 @@ func Export(fileName string, label string, headers []Header, data []DataItem) in
 	C.free(unsafe.Pointer(cHeaders))
 
 	for i := 0; i < numRows*numHeaders; i++ {
-		if (*cDataItem[i]).sav_type == ReadstatTypeString {
+		if int((*cDataItem[i]).sav_type) == ReadstatTypeString.AsInt() {
 			C.free(unsafe.Pointer((*cDataItem[i]).string_value))
 		}
 		C.free(unsafe.Pointer(cDataItem[i]))

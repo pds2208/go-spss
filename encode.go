@@ -43,7 +43,7 @@ func (f FileOutput) Write(rows interface{}) error {
 
 	for _, fieldInfo := range inInnerStructInfo.Fields { // Used to write metadata rows SPSS
 
-		var spssType int32 = 0
+		var spssType ColumnType = 0
 
 		switch fieldInfo.FieldType {
 		case reflect.String:
