@@ -27,7 +27,8 @@ type Dataset struct {
 func NewDataset(name string) (*Dataset, error) {
 	mux := sync.Mutex{}
 	//db, err := sql.Open("sqlite3", ":memory")
-	db, err := sql.Open("sqlite3", "/Users/paul/lfs.db")
+	//db, err := sql.Open("sqlite3", "file::memory:?cache=shared")
+	db, err := sql.Open("sqlite3", "/Users/paul/LFS.db")
 	if err != nil {
 		log.Fatal(err)
 		return nil, err
@@ -93,6 +94,7 @@ func (d *Dataset) AddRow(row Row) error {
 	return nil
 }
 
+// Need a where condition
 func (d *Dataset) DeleteRow() {
 
 }
