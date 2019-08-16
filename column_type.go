@@ -1,6 +1,7 @@
 package spss
 
 type ColumnType int
+type ColumnTypes string
 
 const (
 	ReadstatTypeString    ColumnType = iota
@@ -10,6 +11,15 @@ const (
 	ReadstatTypeFloat     ColumnType = iota
 	ReadstatTypeDouble    ColumnType = iota
 	ReadstatTypeStringRef ColumnType = iota
+)
+
+const (
+	INT     ColumnTypes = "INTEGER"
+	INTEGER ColumnTypes = "INTEGER"
+	BIGINT  ColumnTypes = "BIGINT"
+	STRING  ColumnTypes = "TEXT"
+	FLOAT   ColumnTypes = "FLOAT"
+	DOUBLE  ColumnTypes = "DOUBLE"
 )
 
 func (columnType ColumnType) As() ColumnType {

@@ -1,16 +1,21 @@
 package dataset
 
 import (
+	"bytes"
+	"database/sql"
+	"errors"
 	"fmt"
+	"github.com/deepilla/sqlitemeta"
+	_ "github.com/mattn/go-sqlite3"
 	"github.com/olekukonko/tablewriter"
 	spss "go-spss"
+	"log"
 	"os"
 	"strconv"
 	"sync"
 )
 
 func init() {
-
 }
 
 type ColumnInfo struct {
@@ -25,205 +30,376 @@ type RowData struct {
 	name  string
 	value interface{}
 }
-type Row struct {
-	row map[int][]RowData // row_number, values
-}
 
 type Dataset struct {
-	data        DataItem
-	rowCount    int
-	columnCount int
-	columnInfo  Column
-	mux         sync.Mutex
+	dbName string
+	db     *sql.DB
+	mux    sync.Mutex
 }
 
-func NewDataset() *Dataset {
-	data := make(map[string][]interface{})
-	col := make(map[string]ColumnInfo)
+func NewDataset(name string) (*Dataset, error) {
 	mux := sync.Mutex{}
-	return &Dataset{data, 0, 0, col, mux}
+	//db, err := sql.Open("sqlite3", ":memory")
+	db, err := sql.Open("sqlite3", "/Users/paul/lfs.db")
+	if err != nil {
+		log.Fatal(err)
+		return nil, err
+	}
+	var sqlStmt = fmt.Sprintf("create table %s (Row INTEGER PRIMARY KEY)", name)
+	_, err = db.Exec(sqlStmt)
+	if err != nil {
+		log.Printf("%q: %s\n", err, sqlStmt)
+		return nil, err
+	}
+
+	return &Dataset{name, db, mux}, nil
 }
 
-func (d Dataset) rows() Row {
-	// we store a column view of data so need to convert to row view
-	// by iterating over the columns
-	var rows Row
-	rows.row = make(map[int][]RowData, 0)
-	var columnNames = make([]string, d.columnCount)
-
-	for _, v := range d.columnInfo { // ensure columns are in correct position
-		columnNames[v.position] = v.name
-	}
-
-	for rowNumber := 0; rowNumber <= d.rowCount-1; rowNumber++ {
-		rows.row[rowNumber] = make([]RowData, 0)
-		for _, colName := range columnNames {
-			r := RowData{colName, d.data[colName][rowNumber]}
-			rows.row[rowNumber] = append(rows.row[rowNumber], r)
-		}
-	}
-
-	return rows
+func (d Dataset) Close() {
+	_ = d.db.Close()
 }
 
-func (d *Dataset) AddRow(row map[string]interface{}) error {
-	if len(d.columnInfo) == 0 {
-		return fmt.Errorf("dataset has no columns. add columns first")
-	}
+type Row map[string]interface{}
 
-	if len(row) != len(d.columnInfo) {
-		return fmt.Errorf("%d columns required for row", len(d.columnInfo))
-	}
-
+func (d *Dataset) AddRow(row Row) error {
 	d.mux.Lock()
+	defer d.mux.Unlock()
 
-	for col, value := range row {
-		switch typ := d.columnInfo[col].columnType.As(); typ {
-		case spss.ReadstatTypeInt8, spss.ReadstatTypeInt16, spss.ReadstatTypeInt32:
-			d.data[col] = append(d.data[col], value.(int))
-		case spss.ReadstatTypeFloat:
-			d.data[col] = append(d.data[col], value.(float32))
-		case spss.ReadstatTypeDouble:
-			d.data[col] = append(d.data[col], value.(float64))
-		case spss.ReadstatTypeString:
-			d.data[col] = append(d.data[col], value.(string))
+	var colLookup = d.columnMetadata()
+
+	var colNames bytes.Buffer
+	var colValues bytes.Buffer
+	var keys []string
+	for key := range row {
+		keys = append(keys, key)
+	}
+	for i := 0; i < len(keys); i++ {
+		col := keys[i]
+		value := row[col]
+
+		colNames.WriteString(col)
+
+		switch colLookup[col] {
+		case "TEXT":
+			colValues.WriteString("'" + value.(string) + "'")
+		case "INTEGER", "BIGINT":
+			colValues.WriteString(strconv.Itoa(value.(int)))
+		case "FLOAT":
+			colValues.WriteString(strconv.FormatFloat(value.(float64), 'f', -1, 32))
+		case "DOUBLE":
+			colValues.WriteString(strconv.FormatFloat(value.(float64), 'f', -1, 64))
+		}
+
+		if i != len(keys)-1 {
+			colNames.WriteString(", ")
+			colValues.WriteString(", ")
 		}
 	}
 
-	d.rowCount++
-	d.mux.Unlock()
+	var sqlStmt = fmt.Sprintf("insert into %s (%s) values (%s)", d.dbName, colNames.String(), colValues.String())
+	_, err := d.db.Exec(sqlStmt)
+	if err != nil {
+		log.Printf("Insert failed: %q: %s\n", err, sqlStmt)
+		return err
+	}
+
 	return nil
 }
 
-func (d Dataset) Head(max ...int) {
+func (d *Dataset) DeleteRow() {
 
+}
+
+func (d Dataset) Head(max ...int) error {
 	d.mux.Lock()
+	defer d.mux.Unlock()
+
 	var maxItems = 5
 	if max != nil {
 		maxItems = max[0]
 	}
 
 	table := tablewriter.NewWriter(os.Stdout)
-	var header = make([]string, d.columnCount)
-	for _, v := range d.columnInfo {
-		header[v.position] = v.name
+
+	var sqlStmt = fmt.Sprintf("select * from %s limit %d", d.dbName, maxItems)
+	rows, err := d.db.Query(sqlStmt)
+	if err != nil {
+		log.Printf("select failed: %q: %s\n", err, sqlStmt)
+		return err
+	}
+	defer func() {
+		_ = rows.Close()
+	}()
+
+	cols, err := rows.Columns()
+	if err != nil {
+		log.Printf("select failed on columns: %q: %s\n", err, sqlStmt)
+		return err
+	}
+
+	vals := make([]interface{}, len(cols))
+	var header []string
+	for i, n := range cols {
+		vals[i] = new(sql.RawBytes)
+		header = append(header, n)
 	}
 	table.SetHeader(header)
 
-	if maxItems > d.rowCount {
-		maxItems = d.rowCount
-	}
+	for rows.Next() {
+		err = rows.Scan(vals...)
 
-	for i := 0; i < len(d.rows().row); i++ {
-		if i >= maxItems {
-			break
+		var rowItems []string
+		for col := 0; col < len(vals); col++ {
+			res := vals[col]
+			b := res.(*sql.RawBytes)
+			rowItems = append(rowItems, string(*b))
 		}
-
-		var rowItems = make([]string, d.columnCount)
-		for col := 0; col <= d.columnCount-1; col++ {
-
-			row := d.rows().row[i][col]
-
-			switch typ := d.columnInfo[row.name].columnType.As(); typ {
-			case spss.ReadstatTypeInt8, spss.ReadstatTypeInt16, spss.ReadstatTypeInt32:
-				rowItems[col] = strconv.Itoa(row.value.(int))
-			case spss.ReadstatTypeFloat:
-				rowItems[col] = strconv.FormatFloat(row.value.(float64), 'f', -1, 32)
-			case spss.ReadstatTypeDouble:
-				rowItems[col] = strconv.FormatFloat(row.value.(float64), 'f', -1, 64)
-			case spss.ReadstatTypeString:
-				rowItems[col] = row.value.(string)
-			}
-		}
-
 		table.Append(rowItems)
-
 	}
 
-	j := fmt.Sprintf("%d Row(s)\n", table.NumLines())
+	j := fmt.Sprintf("%d Rows(s)\n", table.NumLines())
 	table.SetCaption(true, j)
 	table.Render()
-	d.mux.Unlock()
+	return nil
 }
 
-func (d *Dataset) AddColumn(name string, columnType spss.ColumnType) {
+func (d *Dataset) AddColumn(name string, columnType spss.ColumnTypes) error {
 	d.mux.Lock()
+	defer d.mux.Unlock()
 
-	c := ColumnInfo{
-		position:   d.columnCount,
-		name:       name,
-		columnType: columnType,
+	sqlStmt := fmt.Sprintf("alter table %s add %s %s", d.dbName, name, columnType)
+	_, err := d.db.Exec(sqlStmt)
+	if err != nil {
+		log.Printf("%q: %s\n", err, sqlStmt)
+		return errors.New("invalid datatype in AddColumn")
 	}
-
-	d.columnCount++
-	d.columnInfo[name] = c
-
-	d.mux.Unlock()
+	return nil
 }
 
-func (d *Dataset) DeleteColumn(name string) {
+/*
+As sql lite can't drop columns, we work around this by doing the following:
+
+1. start a transaction
+2. create a temporary table as existing table minus the column we are dropping
+3. insert all rows from table into temporary table minus the column we are dropping
+4. drop existing table
+5. re-create table
+6. insert data from temporary into table
+7. drop temporary table
+8. commit transaction
+
+*/
+func (d *Dataset) DeleteColumn(name string) (err error) {
 	d.mux.Lock()
+	defer d.mux.Unlock()
 
-	d.columnCount--
-	delete(d.data, name)
-	delete(d.columnInfo, name)
-
-	var columnNames = make([]string, d.columnCount)
-	var i = 0
-	for _, v := range d.columnInfo { // ensure columns are in correct position
-		columnNames[i] = v.name
-		i++
+	ok, colLookup := d.doesColumnExist(name)
+	if !ok {
+		j := fmt.Sprintf("drop column: column %s does not exist", name)
+		return errors.New(j)
 	}
 
-	// a range on a map can return data in any order so we sort it into an array by position first
-	for i := 0; i < len(columnNames); i++ {
-		name := columnNames[i]
-		col := d.columnInfo[name]
-		d.columnInfo[name] = ColumnInfo{i, name, col.columnType}
+	// get and save existing column order
+	orderedColumns := d.orderedColumns()
+
+	var buffer bytes.Buffer
+	var keys []string
+	for i := 0; i < len(orderedColumns); i++ {
+		if orderedColumns[i].Name != name && orderedColumns[i].Name != "Row" {
+			keys = append(keys, orderedColumns[i].Name)
+		}
 	}
 
-	d.mux.Unlock()
-}
-
-func shiftItems() {
-
-}
-
-func (d Dataset) Column(col string) ([]interface{}, error) {
-	d.mux.Lock()
-	if val, ok := d.data[col]; ok {
-		d.mux.Unlock()
-		return val, nil
+	// start transaction
+	tx, err := d.db.Begin()
+	if err != nil {
+		return
 	}
-	d.mux.Unlock()
-	return nil, fmt.Errorf("requested column: %s not found", col)
+
+	// create temp table
+	buffer.WriteString("create table t1 (")
+	for i := 0; i < len(keys); i++ {
+		j := fmt.Sprintf(" %s %s", keys[i], colLookup[keys[i]])
+		buffer.WriteString(j)
+		if i != len(keys)-1 {
+			buffer.WriteString(", ")
+		}
+	}
+	buffer.WriteString(")")
+
+	q := buffer.String()
+	row := d.db.QueryRow(q)
+	err = row.Scan()
+	if err != sql.ErrNoRows {
+		return
+	}
+
+	// insert into temporary table
+	buffer.Reset()
+	buffer.WriteString("insert into t1 (")
+	for i := 0; i < len(keys); i++ {
+		j := fmt.Sprintf("%s", keys[i])
+		buffer.WriteString(j)
+		if i != len(keys)-1 {
+			buffer.WriteString(", ")
+		}
+	}
+	buffer.WriteString(") select ")
+	for i := 0; i < len(keys); i++ {
+		j := fmt.Sprintf("%s", keys[i])
+		buffer.WriteString(j)
+		if i != len(keys)-1 {
+			buffer.WriteString(", ")
+		}
+	}
+	buffer.WriteString(" from ")
+	buffer.WriteString(fmt.Sprintf("%s", d.dbName))
+	q = buffer.String()
+	row = d.db.QueryRow(q)
+	err = row.Scan()
+	if err != sql.ErrNoRows {
+		return
+	}
+
+	// drop existing table
+	row = d.db.QueryRow(fmt.Sprintf("drop table %s", d.dbName))
+	err = row.Scan()
+	if err != sql.ErrNoRows {
+		return
+	}
+
+	// re-create table
+	buffer.Reset()
+	buffer.WriteString(fmt.Sprintf("create table %s (Row INTEGER PRIMARY KEY, ", d.dbName))
+
+	for i := 0; i < len(keys); i++ {
+		j := fmt.Sprintf(" %s %s", keys[i], colLookup[keys[i]])
+		buffer.WriteString(j)
+		if i != len(keys)-1 {
+			buffer.WriteString(", ")
+		}
+	}
+	buffer.WriteString(")")
+
+	q = buffer.String()
+	row = d.db.QueryRow(q)
+	err = row.Scan()
+	if err != sql.ErrNoRows {
+		return
+	}
+
+	// insert back into the table
+	buffer.Reset()
+	buffer.WriteString(fmt.Sprintf("insert into %s (", d.dbName))
+	for i := 0; i < len(keys); i++ {
+		j := fmt.Sprintf("%s", keys[i])
+		buffer.WriteString(j)
+		if i != len(keys)-1 {
+			buffer.WriteString(", ")
+		}
+	}
+	buffer.WriteString(") select ")
+	for i := 0; i < len(keys); i++ {
+		j := fmt.Sprintf("%s", keys[i])
+		buffer.WriteString(j)
+		if i != len(keys)-1 {
+			buffer.WriteString(", ")
+		}
+	}
+	buffer.WriteString(" from t1 ")
+
+	q = buffer.String()
+	row = d.db.QueryRow(q)
+	err = row.Scan()
+	if err != sql.ErrNoRows {
+		return
+	}
+
+	// delete temporary table
+	row = d.db.QueryRow("drop table t1")
+	err = row.Scan()
+	if err != sql.ErrNoRows {
+		return
+	}
+
+	err = tx.Commit()
+	return
 }
 
-func (d Dataset) numColumns() int {
-	return len(d.columnInfo)
+func (d Dataset) NumColumns() int {
+	return len(d.columnMetadata())
 }
 
-func (d Dataset) numRows() int {
-	return len(d.data)
+func (d Dataset) NumRows() (count int) {
+
+	row := d.db.QueryRow(fmt.Sprintf("select count(rowid) from %s", d.dbName))
+	switch err := row.Scan(&count); err {
+	case sql.ErrNoRows:
+		return 0
+	case nil:
+		return
+	default:
+		panic(err)
+	}
+}
+
+// helper functions
+
+type orderedColumns = map[int]sqlitemeta.Column
+
+// ensure table is created with existing column order
+func (d Dataset) orderedColumns() (ordered orderedColumns) {
+	ordered = map[int]sqlitemeta.Column{}
+	res, err := sqlitemeta.Columns(d.db, d.dbName)
+	if err != nil {
+		panic(fmt.Sprintf("cannot get metadata: %s", err))
+	}
+	for _, j := range res {
+		ordered[j.ID] = j
+	}
+	return
+}
+
+type columnInfo map[string]string
+
+func (d Dataset) columnMetadata() (colLookup columnInfo) {
+	res, err := sqlitemeta.Columns(d.db, d.dbName)
+	if err != nil {
+		panic(fmt.Sprintf("cannot get metadata for: %s", err))
+	}
+
+	colLookup = map[string]string{}
+
+	for _, col := range res {
+		colLookup[col.Name] = col.Type
+	}
+	return colLookup
+}
+
+func (d Dataset) doesColumnExist(name string) (bool, columnInfo) {
+	var colLookup = d.columnMetadata()
+	if _, ok := colLookup[name]; !ok {
+		return false, nil
+	}
+	return true, colLookup
 }
 
 func (d Dataset) Mean(col string) (res float64, err error) {
-
-	if _, ok := d.columnInfo[col]; !ok {
-		return 0.0, fmt.Errorf("requested column: %s not found", col)
+	ok, colLookup := d.doesColumnExist(col)
+	if !ok {
+		return 0.0, errors.New(fmt.Sprintf("Mean: column %s does not exist", col))
 	}
 
-	if !d.columnInfo[col].columnType.IsNumeric() {
-		return 0.0, fmt.Errorf("requested column: %s is not numeric", col)
+	if colLookup[col] == string(spss.STRING) {
+		return 0.0, errors.New(fmt.Sprintf("Mean: column %s is not numeric", col))
 	}
 
-	res = 0.0
-	b := d.data[col]
-	for _, item := range b {
-		res += item.(float64)
+	row := d.db.QueryRow(fmt.Sprintf("select avg(%s) from %s", col, d.dbName))
+	err = row.Scan(&res)
+	if err != nil {
+		return 0.0, err
 	}
-
-	return res / float64(len(b)), nil
+	return
 }
 
 func (d Dataset) ReadFromSAV(file string) error {
