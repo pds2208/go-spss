@@ -18,19 +18,6 @@ import (
 func init() {
 }
 
-type ColumnInfo struct {
-	position   int
-	name       string
-	columnType spss.ColumnType
-}
-
-type DataItem = map[string][]interface{} // column name / data
-type Column = map[string]ColumnInfo
-type RowData struct {
-	name  string
-	value interface{}
-}
-
 type Dataset struct {
 	dbName string
 	db     *sql.DB
