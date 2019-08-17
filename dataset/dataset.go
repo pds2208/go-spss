@@ -15,7 +15,15 @@ import (
 	"sync"
 )
 
+var globalLock = sync.Mutex{}
+
 func init() {
+	//db, err := sql.Open("sqlite3", ":memory")
+	//db, err := sql.Open("sqlite3", "file::memory:?cache=shared")
+	_, err := sql.Open("sqlite3", "LFS.db")
+	if err != nil {
+		panic(err)
+	}
 }
 
 type Dataset struct {
@@ -25,7 +33,9 @@ type Dataset struct {
 }
 
 func NewDataset(name string) (*Dataset, error) {
-	mux := sync.Mutex{}
+	globalLock.Lock()
+	defer globalLock.Unlock()
+
 	//db, err := sql.Open("sqlite3", ":memory")
 	//db, err := sql.Open("sqlite3", "file::memory:?cache=shared")
 	db, err := sql.Open("sqlite3", "LFS.db")
@@ -33,13 +43,21 @@ func NewDataset(name string) (*Dataset, error) {
 		log.Fatal(err)
 		return nil, err
 	}
-	var sqlStmt = fmt.Sprintf("create table %s (Row INTEGER PRIMARY KEY)", name)
+	sqlStmt := fmt.Sprintf("drop table if exists %s", name)
 	_, err = db.Exec(sqlStmt)
 	if err != nil {
 		log.Printf("%q: %s\n", err, sqlStmt)
 		return nil, err
 	}
 
+	sqlStmt = fmt.Sprintf("create table %s (Row INTEGER PRIMARY KEY)", name)
+	_, err = db.Exec(sqlStmt)
+	if err != nil {
+		log.Printf("%q: %s\n", err, sqlStmt)
+		return nil, err
+	}
+
+	mux := sync.Mutex{}
 	return &Dataset{name, db, mux}, nil
 }
 
