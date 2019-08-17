@@ -7,7 +7,7 @@ import (
 )
 
 func setupTable() (dataset *Dataset, err error) {
-	_ = os.Remove("/Users/paul/lfs.db")
+	_ = os.Remove("LFS.db")
 	dataset, err = NewDataset("address")
 
 	if err != nil {
