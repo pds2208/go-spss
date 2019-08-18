@@ -6,3 +6,5 @@
 /modules.xml
 /inspectionProfiles/Project_Default.xml
 /vcs.xml
+# Datasource local storage ignored files
+/dataSources.local.xml

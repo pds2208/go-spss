@@ -1,11 +1,11 @@
 package spss
 
 // #cgo windows amd64 CFLAGS: -g -IC:/msys64/mingw64/include
-// #cgo darwin amd64 CFLAGS: -g
-// #cgo linux amd64 CFLAGS: -g
 // #cgo windows LDFLAGS: -LC:/msys64/mingw64/libs -lreadstat
+// #cgo darwin amd64 CFLAGS: -g
 // #cgo darwin LDFLAGS: -lreadstat
-// #cgo linux LDFLAGS: -lreadstat
+// #cgo linux amd64 CFLAGS: -I/usr/local/include -g
+// #cgo linux LDFLAGS: -L/usr/local/lib -lreadstat
 // #include "sav_writer.h"
 // #include <stdlib.h>
 import "C"
