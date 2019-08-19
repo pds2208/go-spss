@@ -14,10 +14,10 @@ func setupTable() (dataset *Dataset, err error) {
 		panic("Cannot create database")
 	}
 
-	_ = dataset.AddColumn("Name", spss.STRING)
-	_ = dataset.AddColumn("Address", spss.STRING)
-	_ = dataset.AddColumn("PostCode", spss.INT)
-	_ = dataset.AddColumn("HowMany", spss.FLOAT)
+	_ = dataset.Insert().Column("Name", spss.STRING)
+	_ = dataset.Insert().Column("Address", spss.STRING)
+	_ = dataset.Insert().Column("PostCode", spss.INT)
+	_ = dataset.Insert().Column("HowMany", spss.FLOAT)
 
 	row1 := map[string]interface{}{
 		"Name":     "Boss Lady",
@@ -38,9 +38,9 @@ func setupTable() (dataset *Dataset, err error) {
 		"PostCode": 667,
 		"HowMany":  12.24,
 	}
-	_ = dataset.AddRow(row1)
-	_ = dataset.AddRow(row2)
-	_ = dataset.AddRow(row3)
+	_ = dataset.Insert().Row(row1)
+	_ = dataset.Insert().Row(row2)
+	_ = dataset.Insert().Row(row3)
 
 	return
 }
@@ -62,17 +62,31 @@ func TestNumberRowsColumns(t *testing.T) {
 	}
 }
 
-func TestDropColumn(t *testing.T) {
+func TestDropByColumn(t *testing.T) {
 	dataset, err := setupTable()
 	if err != nil {
 		panic(err)
 	}
 	defer dataset.Close()
 
-	err = dataset.DeleteColumn("Address")
+	err = dataset.Drop().ByColumn("Address")
 	cols := dataset.NumColumns()
 	if cols != 4 {
-		t.Errorf("DropColumn failed as NumColumns is incorrect, got: %d, want: %d.", cols, 4)
+		t.Errorf("DropByColumn failed as NumColumns is incorrect, got: %d, want: %d.", cols, 4)
+	}
+}
+
+func TestDropRow(t *testing.T) {
+	dataset, err := setupTable()
+	if err != nil {
+		panic(err)
+	}
+	defer dataset.Close()
+
+	err = dataset.Drop().ByRowNumber(1)
+	rows := dataset.NumRows()
+	if rows != 2 {
+		t.Errorf("DropRow failed as NumRows is incorrect, got: %d, want: %d.", rows, 2)
 	}
 }
 

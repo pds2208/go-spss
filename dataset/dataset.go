@@ -1,7 +1,6 @@
 package dataset
 
 import (
-	"bytes"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -11,7 +10,6 @@ import (
 	spss "go-spss"
 	"log"
 	"os"
-	"strconv"
 	"sync"
 )
 
@@ -67,54 +65,12 @@ func (d Dataset) Close() {
 
 type Row map[string]interface{}
 
-func (d *Dataset) AddRow(row Row) error {
-	d.mux.Lock()
-	defer d.mux.Unlock()
-
-	var colLookup = d.columnMetadata()
-
-	var colNames bytes.Buffer
-	var colValues bytes.Buffer
-	var keys []string
-	for key := range row {
-		keys = append(keys, key)
-	}
-	for i := 0; i < len(keys); i++ {
-		col := keys[i]
-		value := row[col]
-
-		colNames.WriteString(col)
-
-		switch colLookup[col] {
-		case "TEXT":
-			colValues.WriteString("'" + value.(string) + "'")
-		case "INTEGER", "BIGINT":
-			colValues.WriteString(strconv.Itoa(value.(int)))
-		case "FLOAT":
-			colValues.WriteString(strconv.FormatFloat(value.(float64), 'f', -1, 32))
-		case "DOUBLE":
-			colValues.WriteString(strconv.FormatFloat(value.(float64), 'f', -1, 64))
-		}
-
-		if i != len(keys)-1 {
-			colNames.WriteString(", ")
-			colValues.WriteString(", ")
-		}
-	}
-
-	var sqlStmt = fmt.Sprintf("insert into %s (%s) values (%s)", d.dbName, colNames.String(), colValues.String())
-	_, err := d.db.Exec(sqlStmt)
-	if err != nil {
-		log.Printf("Insert failed: %q: %s\n", err, sqlStmt)
-		return err
-	}
-
-	return nil
+func (d Dataset) Insert() *insert {
+	return &insert{d}
 }
 
-// Need a where condition
-func (d *Dataset) DeleteRow() {
-
+func (d Dataset) Drop() *drop {
+	return &drop{d}
 }
 
 func (d Dataset) Head(max ...int) error {
@@ -168,169 +124,6 @@ func (d Dataset) Head(max ...int) error {
 	table.SetCaption(true, j)
 	table.Render()
 	return nil
-}
-
-func (d *Dataset) AddColumn(name string, columnType spss.ColumnTypes) error {
-	d.mux.Lock()
-	defer d.mux.Unlock()
-
-	sqlStmt := fmt.Sprintf("alter table %s add %s %s", d.dbName, name, columnType)
-	_, err := d.db.Exec(sqlStmt)
-	if err != nil {
-		log.Printf("%q: %s\n", err, sqlStmt)
-		return errors.New("invalid datatype in AddColumn")
-	}
-	return nil
-}
-
-/*
-As sql lite can't drop columns, we work around this by doing the following:
-
-1. start a transaction
-2. create a temporary table as existing table minus the column we are dropping
-3. insert all rows from table into temporary table minus the column we are dropping
-4. drop existing table
-5. re-create table
-6. insert data from temporary into table
-7. drop temporary table
-8. commit transaction
-
-*/
-func (d *Dataset) DeleteColumn(name string) (err error) {
-	d.mux.Lock()
-	defer d.mux.Unlock()
-
-	ok, colLookup := d.doesColumnExist(name)
-	if !ok {
-		j := fmt.Sprintf("drop column: column %s does not exist", name)
-		return errors.New(j)
-	}
-
-	// get and save existing column order
-	orderedColumns := d.orderedColumns()
-
-	var buffer bytes.Buffer
-	var keys []string
-	for i := 0; i < len(orderedColumns); i++ {
-		if orderedColumns[i].Name != name && orderedColumns[i].Name != "Row" {
-			keys = append(keys, orderedColumns[i].Name)
-		}
-	}
-
-	// start transaction
-	tx, err := d.db.Begin()
-	if err != nil {
-		return
-	}
-
-	// create temp table
-	buffer.WriteString("create table t1 (")
-	for i := 0; i < len(keys); i++ {
-		j := fmt.Sprintf(" %s %s", keys[i], colLookup[keys[i]])
-		buffer.WriteString(j)
-		if i != len(keys)-1 {
-			buffer.WriteString(", ")
-		}
-	}
-	buffer.WriteString(")")
-
-	q := buffer.String()
-	row := d.db.QueryRow(q)
-	err = row.Scan()
-	if err != sql.ErrNoRows {
-		return
-	}
-
-	// insert into temporary table
-	buffer.Reset()
-	buffer.WriteString("insert into t1 (")
-	for i := 0; i < len(keys); i++ {
-		j := fmt.Sprintf("%s", keys[i])
-		buffer.WriteString(j)
-		if i != len(keys)-1 {
-			buffer.WriteString(", ")
-		}
-	}
-	buffer.WriteString(") select ")
-	for i := 0; i < len(keys); i++ {
-		j := fmt.Sprintf("%s", keys[i])
-		buffer.WriteString(j)
-		if i != len(keys)-1 {
-			buffer.WriteString(", ")
-		}
-	}
-	buffer.WriteString(" from ")
-	buffer.WriteString(fmt.Sprintf("%s", d.dbName))
-	q = buffer.String()
-	row = d.db.QueryRow(q)
-	err = row.Scan()
-	if err != sql.ErrNoRows {
-		return
-	}
-
-	// drop existing table
-	row = d.db.QueryRow(fmt.Sprintf("drop table %s", d.dbName))
-	err = row.Scan()
-	if err != sql.ErrNoRows {
-		return
-	}
-
-	// re-create table
-	buffer.Reset()
-	buffer.WriteString(fmt.Sprintf("create table %s (Row INTEGER PRIMARY KEY, ", d.dbName))
-
-	for i := 0; i < len(keys); i++ {
-		j := fmt.Sprintf(" %s %s", keys[i], colLookup[keys[i]])
-		buffer.WriteString(j)
-		if i != len(keys)-1 {
-			buffer.WriteString(", ")
-		}
-	}
-	buffer.WriteString(")")
-
-	q = buffer.String()
-	row = d.db.QueryRow(q)
-	err = row.Scan()
-	if err != sql.ErrNoRows {
-		return
-	}
-
-	// insert back into the table
-	buffer.Reset()
-	buffer.WriteString(fmt.Sprintf("insert into %s (", d.dbName))
-	for i := 0; i < len(keys); i++ {
-		j := fmt.Sprintf("%s", keys[i])
-		buffer.WriteString(j)
-		if i != len(keys)-1 {
-			buffer.WriteString(", ")
-		}
-	}
-	buffer.WriteString(") select ")
-	for i := 0; i < len(keys); i++ {
-		j := fmt.Sprintf("%s", keys[i])
-		buffer.WriteString(j)
-		if i != len(keys)-1 {
-			buffer.WriteString(", ")
-		}
-	}
-	buffer.WriteString(" from t1 ")
-
-	q = buffer.String()
-	row = d.db.QueryRow(q)
-	err = row.Scan()
-	if err != sql.ErrNoRows {
-		return
-	}
-
-	// delete temporary table
-	row = d.db.QueryRow("drop table t1")
-	err = row.Scan()
-	if err != sql.ErrNoRows {
-		return
-	}
-
-	err = tx.Commit()
-	return
 }
 
 func (d Dataset) NumColumns() int {
