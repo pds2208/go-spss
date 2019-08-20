@@ -57,7 +57,7 @@ func (f FileInput) Read(out interface{}) error {
 	headers := spssRows[0]
 	body := spssRows[1:]
 
-	spssHeadersLabels := make(map[int]*fieldInfo, len(outInnerStructInfo.Fields)) // Used to store the correspondance header <-> position in CSV
+	spssHeadersLabels := make(map[int]*fieldInfo, len(outInnerStructInfo.Fields)) // Used to store the corresponding header <-> position in CSV
 
 	headerCount := map[string]int{}
 	for i, csvColumnHeader := range headers {
@@ -149,7 +149,7 @@ func ensureOutType(outType reflect.Type) error {
 	case reflect.Slice:
 		fallthrough
 	case reflect.Chan:
-		fallthrough
+		return nil
 	case reflect.Array:
 		return nil
 	}

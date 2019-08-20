@@ -143,9 +143,12 @@ int handle_value(int obs_index, readstat_variable_t *variable, readstat_value_t 
 }
 
 struct Data * parse_sav(const char *input_file) {
+
     if (input_file == 0) {
+        printf("Input file not provided\n");
         return NULL;
     }
+
 
     readstat_error_t error;
     readstat_parser_t *parser = readstat_parser_init();
@@ -170,6 +173,7 @@ struct Data * parse_sav(const char *input_file) {
     readstat_parser_free(parser);
 
     if (error != READSTAT_OK) {
+      printf("readstat_parse_sav failed: %d\n", error);
       return NULL;
     }
 

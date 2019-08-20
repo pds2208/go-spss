@@ -1,5 +1,5 @@
 FROM golang:alpine3.10 as builder
-
+LABEL stage=builder
 WORKDIR /app
 
 RUN mkdir /user && \
@@ -22,21 +22,16 @@ RUN go mod download && CGO_ENABLED=1 GOPATH=/app GOOS=linux GOARCH=amd64 go buil
 WORKDIR /app/src/service
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -ldflags '-extldflags "-static"' -o main .
 
-# using this multi-stage build reduces the image size from ~1GB to ~7MB
+# using this multi-stage build reduces the image size from ~1GB to ~8MB
 
-FROM alpine:latest
-RUN apk --no-cache add ca-certificates
+FROM scratch
 WORKDIR /app
-COPY --from=builder /app/src/libgo-spss.so .
 
-# Import the user and group files
 COPY --from=builder /user/group /user/passwd /etc/
-# Import the CA certs
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-# Import the compiled go executable
 COPY --from=builder /app/src/service/main /
+
 WORKDIR /
-# Run as unpriveleged
 USER nobody:nobody
 ENTRYPOINT ["/main"]
-EXPOSE 8080:8080
+EXPOSE 8080
