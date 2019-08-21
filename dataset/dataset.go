@@ -33,9 +33,9 @@ type Dataset struct {
 var settings = sqlite.ConnectionURL{
 	Database: "LFS.db",
 	Options: map[string]string{
-		"cache":        "shared",
-		"_synchronous": "OFF", // when not using memory: we don't need this and it's slow
-		"_journal":     "OFF", // when not using memory: we don't need this and it's slow
+		"cache": "shared",
+		//"_synchronous": "OFF", // when not using memory: we don't need this
+		"_journal": "WAL", // much, MUCH faster
 		//"mode":  "memory", // memory=prod otherwise debug so we can see the file
 	},
 }

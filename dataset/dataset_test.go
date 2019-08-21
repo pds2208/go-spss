@@ -119,9 +119,15 @@ func TestMean(t *testing.T) {
 func TestReadSav(t *testing.T) {
 
 	type SpssFile struct {
-		Shiftno int    `spss:"Shiftno"`
-		Serial  int64  `spss:"Serial"`
-		Version string `spss:"Version"`
+		Shiftno      int    `spss:"Shiftno"`
+		Serial       int64  `spss:"Serial"`
+		Version      string `spss:"Version"`
+		PortRoute2   int    `spss:"PortRoute2"`
+		Baseport     string `spss:"Baseport"`
+		PRouteLatDeg int    `spss:"PRouteLatDeg"`
+		PRouteLonEW  string `spss:"PRouteLonEW"`
+		DVLineName   string `spss:"DVLineName"`
+		DVPortName   string `spss:"DVPortName"`
 	}
 
 	dataset, err := FromSav("../testdata/ips1710bv2.sav", SpssFile{})
