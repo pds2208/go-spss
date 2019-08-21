@@ -119,16 +119,17 @@ func TestMean(t *testing.T) {
 func TestReadSav(t *testing.T) {
 
 	type SpssFile struct {
-		Shiftno float64 `spss:"Shiftno"`
-		Serial  float64 `spss:"Serial"`
-		Version string  `spss:"Version"`
+		Shiftno int    `spss:"Shiftno"`
+		Serial  int64  `spss:"Serial"`
+		Version string `spss:"Version"`
 	}
 
 	dataset, err := FromSav("../testdata/ips1710bv2.sav", SpssFile{})
 	if err != nil {
 		panic(err)
 	}
+	defer dataset.Close()
 
 	t.Logf("Dataset Size: %d\n", dataset.NumRows())
-
+	_ = dataset.Head(5)
 }

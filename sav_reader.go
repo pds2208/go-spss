@@ -12,11 +12,18 @@ import "C"
 
 import (
 	"errors"
+	"fmt"
+	"os"
 	"strings"
 	"unsafe"
 )
 
 func Import(fileName string) ([][]string, error) {
+
+	if _, err := os.Stat(fileName); os.IsNotExist(err) {
+		return nil, fmt.Errorf(" -> Import: file %s not found", fileName)
+	}
+
 	name := C.CString(fileName)
 	defer C.free(unsafe.Pointer(name))
 

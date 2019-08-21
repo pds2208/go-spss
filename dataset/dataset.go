@@ -9,9 +9,10 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/olekukonko/tablewriter"
 	spss "go-spss"
-	"log"
 	"os"
+	"path/filepath"
 	"reflect"
+	"strings"
 	"sync"
 	"upper.io/db.v3/lib/sqlbuilder"
 	"upper.io/db.v3/sqlite"
@@ -29,10 +30,12 @@ type Dataset struct {
 	mux    sync.Mutex
 }
 
-//db, err := sql.Open("sqlite3", ":memory")
-//db, err := sql.Open("sqlite3", "file::memory:?cache=shared")
 var settings = sqlite.ConnectionURL{
-	Database: "LFS.db", // file::memory:?cache=shared
+	Database: "LFS.db",
+	Options: map[string]string{
+		"cache": "shared",
+		"mode":  "memory",
+	},
 }
 
 func NewDataset(name string) (*Dataset, error) {
@@ -47,13 +50,11 @@ func NewDataset(name string) (*Dataset, error) {
 
 	conn := sess.Driver().(*sql.DB)
 
-	_, err = sess.Exec(fmt.Sprintf("drop table if exists %s", name))
-	if err != nil {
-		panic(err)
-	}
+	_, _ = sess.Exec(fmt.Sprintf("drop table if exists %s", name))
+
 	_, err = sess.Exec(fmt.Sprintf("create table %s (Row INTEGER PRIMARY KEY)", name))
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf(" -> NewDataset: cannot create table: %s, error: %s", name, err)
 	}
 
 	mux := sync.Mutex{}
@@ -71,8 +72,7 @@ func (d Dataset) AddColumn(name string, columnType spss.ColumnTypes) error {
 	sqlStmt := fmt.Sprintf("alter table %s add %s %s", d.dbName, name, columnType)
 	_, err := d.DB.Exec(sqlStmt)
 	if err != nil {
-		log.Printf("%q: %s\n", err, sqlStmt)
-		return errors.New("invalid datatype in AddColumn")
+		return fmt.Errorf(" -> AddColumn: cannot insert column: %s", err)
 	}
 	return nil
 }
@@ -80,6 +80,9 @@ func (d Dataset) AddColumn(name string, columnType spss.ColumnTypes) error {
 func (d Dataset) Insert(values interface{}) (err error) {
 	q := d.DB.InsertInto(d.dbName).Values(values)
 	_, err = q.Exec()
+	if err != nil {
+		return fmt.Errorf(" -> Insert: cannot insert row: %s", err)
+	}
 	return
 }
 
@@ -97,8 +100,7 @@ func (d Dataset) Head(max ...int) error {
 	var sqlStmt = fmt.Sprintf("select * from %s limit %d", d.dbName, maxItems)
 	rows, err := d.DB.Query(sqlStmt)
 	if err != nil {
-		log.Printf("select failed: %q: %s\n", err, sqlStmt)
-		return err
+		return fmt.Errorf(" -> Head: Query() failed: %s", err)
 	}
 	defer func() {
 		_ = rows.Close()
@@ -106,8 +108,7 @@ func (d Dataset) Head(max ...int) error {
 
 	cols, err := rows.Columns()
 	if err != nil {
-		log.Printf("select failed on columns: %q: %s\n", err, sqlStmt)
-		return err
+		return fmt.Errorf(" -> Head: select failed on columns: %s", err)
 	}
 
 	vals := make([]interface{}, len(cols))
@@ -236,8 +237,7 @@ func (d Dataset) DropColumn(column string) (err error) {
 
 	ok, colLookup := d.doesColumnExist(column)
 	if !ok {
-		j := fmt.Sprintf("Delete column: column %s does not exist", column)
-		return errors.New(j)
+		return fmt.Errorf(" -> DropColumn: column %s does not exist: %s", column, err)
 	}
 
 	// get and save existing column order
@@ -255,7 +255,7 @@ func (d Dataset) DropColumn(column string) (err error) {
 
 	tx, err := d.DB.NewTx(nil)
 	if err != nil {
-		return
+		return fmt.Errorf(" -> DropColumn: cannot create transaction: %s", err)
 	}
 
 	// create temp table
@@ -272,7 +272,7 @@ func (d Dataset) DropColumn(column string) (err error) {
 	q := buffer.String()
 	_, err = d.DB.Exec(q)
 	if err != nil {
-		return
+		return fmt.Errorf(" -> DropColumn: Exec() failed: %s", err)
 	}
 
 	// insert into temporary table
@@ -298,13 +298,13 @@ func (d Dataset) DropColumn(column string) (err error) {
 	q = buffer.String()
 	_, err = d.DB.Exec(q)
 	if err != nil {
-		return
+		return fmt.Errorf(" -> DropColumn: Exec() failed: %s", err)
 	}
 
 	// Delete existing table
 	_, err = d.DB.Exec(fmt.Sprintf("drop table %s", d.dbName))
 	if err != nil {
-		return
+		return fmt.Errorf(" -> DropColumn: Exec() failed: %s", err)
 	}
 
 	// re-create table
@@ -323,7 +323,7 @@ func (d Dataset) DropColumn(column string) (err error) {
 	q = buffer.String()
 	_, err = d.DB.Exec(q)
 	if err != nil {
-		return
+		return fmt.Errorf(" -> DropColumn: Exec() failed: %s", err)
 	}
 
 	// insert back into the table
@@ -336,7 +336,9 @@ func (d Dataset) DropColumn(column string) (err error) {
 			buffer.WriteString(", ")
 		}
 	}
+
 	buffer.WriteString(") select ")
+
 	for i := 0; i < len(keys); i++ {
 		j := fmt.Sprintf("%s", keys[i])
 		buffer.WriteString(j)
@@ -349,16 +351,20 @@ func (d Dataset) DropColumn(column string) (err error) {
 	q = buffer.String()
 	_, err = d.DB.Exec(q)
 	if err != nil {
-		return
+		return fmt.Errorf(" -> DropColumn: Exec() failed: %s", err)
 	}
 
 	// Delete temporary table
 	_, err = d.DB.Exec("drop table t1")
 	if err != nil {
-		return
+		return fmt.Errorf(" -> DropColumn: Exec() failed: %s", err)
 	}
 
 	err = tx.Commit()
+	if err != nil {
+		return fmt.Errorf(" -> DropColumn: Commit() failed: %s", err)
+	}
+
 	return
 }
 
@@ -366,6 +372,9 @@ func (d Dataset) DeleteWhere(where ...interface{}) (err error) {
 	err = nil
 	q := d.DB.DeleteFrom(d.dbName).Where(where)
 	_, err = q.Exec()
+	if err != nil {
+		return fmt.Errorf(" -> DeleteWhere: Exec failed: %s", err)
+	}
 	return
 }
 
@@ -373,41 +382,40 @@ func FromSav(in string, out interface{}) (dataset Dataset, err error) {
 
 	var empty Dataset
 
-	if _, err := os.Stat(in); os.IsNotExist(err) {
-		return empty, fmt.Errorf(" -> FromSav: file %s not found", in)
-	}
-
 	// check out is a struct
 	if reflect.ValueOf(out).Kind() != reflect.Struct {
 		return empty, fmt.Errorf(" -> FromSav: %T is not a struct type", out)
 	}
-
-	//err = spss.ReadFromSPSSFile(in, out)
-	//if err != nil {
-	//    return empty, err
-	//}
 
 	spssRows, err := spss.Import(in)
 	if err != nil {
 		return empty, err
 	}
 	if len(spssRows) == 0 {
-		return empty, fmt.Errorf("spss file: %s is empty", in)
+		return empty, fmt.Errorf(" -> FromSav: spss file: %s is empty", in)
 	}
 
-	d, er := NewDataset(in)
+	_, file := filepath.Split(in)
+	var extension = filepath.Ext(file)
+	var name = file[0 : len(file)-len(extension)]
+
+	d, er := NewDataset(name)
 	if er != nil {
-		return empty, errors.New(" -> FromSav: cannot create a new DataSet")
+		return empty, fmt.Errorf(" -> FromSav: cannot create a new DataSet: %s", er)
 	}
 
-	d.mux.Lock()
-	defer d.mux.Unlock()
+	tx, err := d.DB.NewTx(nil)
+	if err != nil {
+		return empty, fmt.Errorf(" -> FromSav: cannot create a transaction: %s", err)
+	}
 
 	t1 := reflect.TypeOf(out)
 
+	headerItems := make(map[string]reflect.Kind)
+
 	for i := 0; i < t1.NumField(); i++ {
 		a := t1.Field(i)
-		name := t1.Name()
+		headerItems[a.Name] = a.Type.Kind()
 
 		var spssType spss.ColumnTypes
 
@@ -418,15 +426,17 @@ func FromSav(in string, out interface{}) (dataset Dataset, err error) {
 			spssType = spss.INT
 		case reflect.Int, reflect.Int32, reflect.Uint32:
 			spssType = spss.INT
+		case reflect.Int64, reflect.Uint64:
+			spssType = spss.INT
 		case reflect.Float32:
 			spssType = spss.FLOAT
 		case reflect.Float64:
 			spssType = spss.DOUBLE
 		default:
-			return empty, fmt.Errorf("cannot convert type for struct variable into SPSS type")
+			return empty, fmt.Errorf(" -> FromSav: cannot convert struct variable type from SPSS type")
 		}
 
-		err = d.AddColumn(name, spssType)
+		err = d.AddColumn(a.Name, spssType)
 		if err != nil {
 			return empty, fmt.Errorf(" -> FromSav: cannot create column %s, of type %s", name, spssType)
 		}
@@ -438,11 +448,31 @@ func FromSav(in string, out interface{}) (dataset Dataset, err error) {
 
 	for _, spssRow := range body {
 		row := make(map[string]interface{})
-		for j, columnContent := range spssRow {
-			row[headers[j]] = columnContent
+
+		for j := 0; j < len(spssRow)-1; j++ {
+			if len(spssRow) != len(headers) {
+				return empty, fmt.Errorf(" -> FromSav: header is out of alignment with row. row size: %d, column size: %d\n", len(spssRow), len(headers))
+			}
+			header := headers[j]
+			// extract the columns we are interested in
+			kind, ok := headerItems[headers[j]]
+			if !ok {
+				continue
+			}
+			if kind == reflect.String {
+				spssRow[j] = strings.Trim(spssRow[j], "\"")
+			}
+			row[header] = spssRow[j]
 		}
-		_ = dataset.Insert(row)
+		err = d.Insert(row)
+		if err != nil {
+			return empty, fmt.Errorf(" -> FromSav: cannot create row: %s", err)
+		}
 	}
 
+	err = tx.Commit()
+	if err != nil {
+		return empty, fmt.Errorf(" -> FromSav: commit transaction failed: %s", err)
+	}
 	return *d, nil
 }
