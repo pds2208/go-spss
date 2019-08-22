@@ -12,7 +12,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"strings"
 	"sync"
 	"upper.io/db.v3/lib/sqlbuilder"
 	"upper.io/db.v3/sqlite"
@@ -24,18 +23,19 @@ func init() {
 }
 
 type Dataset struct {
-	dbName string
-	DB     sqlbuilder.Database
-	conn   *sql.DB
-	mux    sync.Mutex
+	tableName string
+	tableMeta map[string]reflect.Kind
+	DB        sqlbuilder.Database
+	conn      *sql.DB
+	mux       sync.Mutex
 }
 
 var settings = sqlite.ConnectionURL{
 	Database: "LFS.db",
 	Options: map[string]string{
-		"cache": "shared",
-		//"_synchronous": "OFF", // when not using memory: we don't need this
-		"_journal": "WAL", // much, MUCH faster
+		"cache":        "shared",
+		"_synchronous": "OFF", // when not using memory: we don't need this
+		"_journal":     "WAL", // much, MUCH faster
 		//"mode":  "memory", // memory=prod otherwise debug so we can see the file
 	},
 }
@@ -60,7 +60,7 @@ func NewDataset(name string) (*Dataset, error) {
 	}
 
 	mux := sync.Mutex{}
-	return &Dataset{name, sess, conn, mux}, nil
+	return &Dataset{name, nil, sess, conn, mux}, nil
 }
 
 func (d Dataset) Close() {
@@ -71,7 +71,7 @@ func (d Dataset) AddColumn(name string, columnType spss.ColumnTypes) error {
 	d.mux.Lock()
 	defer d.mux.Unlock()
 
-	sqlStmt := fmt.Sprintf("alter table %s add %s %s", d.dbName, name, columnType)
+	sqlStmt := fmt.Sprintf("alter table %s add %s %s", d.tableName, name, columnType)
 	_, err := d.DB.Exec(sqlStmt)
 	if err != nil {
 		return fmt.Errorf(" -> AddColumn: cannot insert column: %s", err)
@@ -80,7 +80,7 @@ func (d Dataset) AddColumn(name string, columnType spss.ColumnTypes) error {
 }
 
 func (d Dataset) Insert(values interface{}) (err error) {
-	q := d.DB.InsertInto(d.dbName).Values(values)
+	q := d.DB.InsertInto(d.tableName).Values(values)
 	_, err = q.Exec()
 	if err != nil {
 		return fmt.Errorf(" -> Insert: cannot insert row: %s", err)
@@ -99,7 +99,7 @@ func (d Dataset) Head(max ...int) error {
 
 	table := tablewriter.NewWriter(os.Stdout)
 
-	var sqlStmt = fmt.Sprintf("select * from %s limit %d", d.dbName, maxItems)
+	var sqlStmt = fmt.Sprintf("select * from %s limit %d", d.tableName, maxItems)
 	rows, err := d.DB.Query(sqlStmt)
 	if err != nil {
 		return fmt.Errorf(" -> Head: Query() failed: %s", err)
@@ -144,15 +144,9 @@ func (d Dataset) NumColumns() int {
 }
 
 func (d Dataset) NumRows() (count int) {
-	row, _ := d.DB.QueryRow(fmt.Sprintf("select count(rowid) from %s", d.dbName))
-	switch err := row.Scan(&count); err {
-	case sql.ErrNoRows:
-		return 0
-	case nil:
-		return
-	default:
-		panic(err)
-	}
+	row, _ := d.DB.QueryRow(fmt.Sprintf("select count(*) from %s", d.tableName))
+	_ = row.Scan(&count)
+	return
 }
 
 // helper functions
@@ -163,9 +157,9 @@ type orderedColumns = map[int]sqlitemeta.Column
 func (d Dataset) orderedColumns() (ordered orderedColumns) {
 	ordered = map[int]sqlitemeta.Column{}
 
-	res, err := sqlitemeta.Columns(d.conn, d.dbName)
+	res, err := sqlitemeta.Columns(d.conn, d.tableName)
 	if err != nil {
-		panic(fmt.Sprintf("cannot get metadata: %s", err))
+		panic(fmt.Sprintf(" -> orderedColumns: cannot get metadata: %s", err))
 	}
 	for _, j := range res {
 		ordered[j.ID] = j
@@ -177,9 +171,9 @@ type columnInfo map[string]string
 
 func (d Dataset) columnMetadata() (colLookup columnInfo) {
 
-	res, err := sqlitemeta.Columns(d.conn, d.dbName)
+	res, err := sqlitemeta.Columns(d.conn, d.tableName)
 	if err != nil {
-		panic(fmt.Sprintf("cannot get metadata for: %s", err))
+		panic(fmt.Sprintf(" -> columnMetadata: cannot get metadata for: %s", err))
 	}
 
 	colLookup = map[string]string{}
@@ -201,14 +195,14 @@ func (d Dataset) doesColumnExist(name string) (bool, columnInfo) {
 func (d Dataset) Mean(col string) (res float64, err error) {
 	ok, colLookup := d.doesColumnExist(col)
 	if !ok {
-		return 0.0, errors.New(fmt.Sprintf("Mean: column %s does not exist", col))
+		return 0.0, errors.New(fmt.Sprintf(" -> Mean: column %s does not exist", col))
 	}
 
 	if colLookup[col] == string(spss.STRING) {
-		return 0.0, errors.New(fmt.Sprintf("Mean: column %s is not numeric", col))
+		return 0.0, errors.New(fmt.Sprintf(" -> Mean: column %s is not numeric", col))
 	}
 
-	row, err := d.DB.QueryRow(fmt.Sprintf("select avg(%s) from %s", col, d.dbName))
+	row, err := d.DB.QueryRow(fmt.Sprintf("select avg(%s) from %s", col, d.tableName))
 	if err != nil {
 		return 0.0, err
 	}
@@ -296,7 +290,7 @@ func (d Dataset) DropColumn(column string) (err error) {
 		}
 	}
 	buffer.WriteString(" from ")
-	buffer.WriteString(fmt.Sprintf("%s", d.dbName))
+	buffer.WriteString(fmt.Sprintf("%s", d.tableName))
 	q = buffer.String()
 	_, err = d.DB.Exec(q)
 	if err != nil {
@@ -304,14 +298,14 @@ func (d Dataset) DropColumn(column string) (err error) {
 	}
 
 	// Delete existing table
-	_, err = d.DB.Exec(fmt.Sprintf("drop table %s", d.dbName))
+	_, err = d.DB.Exec(fmt.Sprintf("drop table %s", d.tableName))
 	if err != nil {
 		return fmt.Errorf(" -> DropColumn: Exec() failed: %s", err)
 	}
 
 	// re-create table
 	buffer.Reset()
-	buffer.WriteString(fmt.Sprintf("create table %s (Row INTEGER PRIMARY KEY, ", d.dbName))
+	buffer.WriteString(fmt.Sprintf("create table %s (Row INTEGER PRIMARY KEY, ", d.tableName))
 
 	for i := 0; i < len(keys); i++ {
 		j := fmt.Sprintf(" %s %s", keys[i], colLookup[keys[i]])
@@ -330,7 +324,7 @@ func (d Dataset) DropColumn(column string) (err error) {
 
 	// insert back into the table
 	buffer.Reset()
-	buffer.WriteString(fmt.Sprintf("insert into %s (", d.dbName))
+	buffer.WriteString(fmt.Sprintf("insert into %s (", d.tableName))
 	for i := 0; i < len(keys); i++ {
 		j := fmt.Sprintf("%s", keys[i])
 		buffer.WriteString(j)
@@ -372,12 +366,101 @@ func (d Dataset) DropColumn(column string) (err error) {
 
 func (d Dataset) DeleteWhere(where ...interface{}) (err error) {
 	err = nil
-	q := d.DB.DeleteFrom(d.dbName).Where(where)
+	q := d.DB.DeleteFrom(d.tableName).Where(where)
 	_, err = q.Exec()
 	if err != nil {
 		return fmt.Errorf(" -> DeleteWhere: Exec failed: %s", err)
 	}
 	return
+}
+
+func (d Dataset) ToCSV(fileName string) error {
+	f, err := os.Create(fileName)
+	if err != nil {
+		return fmt.Errorf(" -> ToCSV: cannot open output csv file: %s", err)
+	}
+
+	defer f.Close()
+
+	orderedColumns := d.orderedColumns()
+
+	var buffer bytes.Buffer
+	var keys []string
+	for i := 0; i < len(orderedColumns); i++ {
+		if orderedColumns[i].Name != "Row" {
+			keys = append(keys, orderedColumns[i].Name)
+		}
+	}
+
+	for i := 0; i < len(keys); i++ {
+		j := fmt.Sprintf("%s", keys[i])
+		buffer.WriteString(j)
+		if i != len(keys)-1 {
+			buffer.WriteString(",")
+		} else {
+			buffer.WriteString("\n")
+		}
+	}
+
+	q := buffer.String()
+
+	_, err = f.WriteString(q)
+	if err != nil {
+		return fmt.Errorf(" -> ToCSV: write to file: %s failed: %s", fileName, err)
+	}
+
+	col := d.DB.Collection(d.tableName)
+	res := col.Find()
+	defer res.Close()
+	var dat map[string]interface{}
+
+	for res.Next(&dat) {
+		buffer.Reset()
+
+		orderedColumns := d.orderedColumns()
+		var keys []string
+		for i := 0; i < len(orderedColumns); i++ {
+			if orderedColumns[i].Name != "Row" {
+				keys = append(keys, orderedColumns[i].Name)
+			}
+		}
+
+		for i := 0; i < len(keys); i++ {
+			kind := d.tableMeta[keys[i]]
+			value := dat[keys[i]]
+
+			switch kind {
+			case reflect.String:
+				buffer.WriteString(fmt.Sprintf("%s", value))
+			case reflect.Int8, reflect.Uint8:
+				buffer.WriteString(fmt.Sprintf("%d", value))
+			case reflect.Int, reflect.Int32, reflect.Uint32:
+				buffer.WriteString(fmt.Sprintf("%d", value))
+			case reflect.Int64, reflect.Uint64:
+				buffer.WriteString(fmt.Sprintf("%d", value))
+			case reflect.Float32:
+				buffer.WriteString(fmt.Sprintf("%f", value))
+			case reflect.Float64:
+				buffer.WriteString(fmt.Sprintf("%g", value))
+			default:
+				return fmt.Errorf(" -> ToCSV: unknown type - possible corruption")
+			}
+			if i != len(keys)-1 {
+				buffer.WriteString(",")
+			} else {
+				buffer.WriteString("\n")
+			}
+		}
+
+		q := buffer.String()
+
+		_, err = f.WriteString(q)
+		if err != nil {
+			return fmt.Errorf(" -> ToCSV: write to file: %s failed: %s", fileName, err)
+		}
+	}
+
+	return nil
 }
 
 func FromSav(in string, out interface{}) (dataset Dataset, err error) {
@@ -413,11 +496,11 @@ func FromSav(in string, out interface{}) (dataset Dataset, err error) {
 
 	t1 := reflect.TypeOf(out)
 
-	headerItems := make(map[string]reflect.Kind)
+	d.tableMeta = make(map[string]reflect.Kind)
 
 	for i := 0; i < t1.NumField(); i++ {
 		a := t1.Field(i)
-		headerItems[a.Name] = a.Type.Kind()
+		d.tableMeta[a.Name] = a.Type.Kind()
 
 		var spssType spss.ColumnTypes
 
@@ -447,7 +530,6 @@ func FromSav(in string, out interface{}) (dataset Dataset, err error) {
 
 	headers := spssRows[0]
 	body := spssRows[1:]
-
 	for _, spssRow := range body {
 		row := make(map[string]interface{})
 
@@ -457,24 +539,23 @@ func FromSav(in string, out interface{}) (dataset Dataset, err error) {
 			}
 			header := headers[j]
 			// extract the columns we are interested in
-			kind, ok := headerItems[headers[j]]
-			if !ok {
+			if _, ok := d.tableMeta[headers[j]]; !ok {
 				continue
-			}
-			if kind == reflect.String {
-				spssRow[j] = strings.Trim(spssRow[j], "\"")
 			}
 			row[header] = spssRow[j]
 		}
+
 		err = d.Insert(row)
 		if err != nil {
 			return empty, fmt.Errorf(" -> FromSav: cannot create row: %s", err)
 		}
+
 	}
 
 	err = tx.Commit()
 	if err != nil {
 		return empty, fmt.Errorf(" -> FromSav: commit transaction failed: %s", err)
 	}
+
 	return *d, nil
 }

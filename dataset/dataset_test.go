@@ -139,3 +139,32 @@ func TestReadSav(t *testing.T) {
 	t.Logf("Dataset Size: %d\n", dataset.NumRows())
 	_ = dataset.Head(5)
 }
+
+func TestWriteCSV(t *testing.T) {
+
+	type SpssFile struct {
+		Shiftno      int    `spss:"Shiftno"`
+		Serial       int64  `spss:"Serial"`
+		Version      string `spss:"Version"`
+		PortRoute2   int    `spss:"PortRoute2"`
+		Baseport     string `spss:"Baseport"`
+		PRouteLatDeg int    `spss:"PRouteLatDeg"`
+		PRouteLonEW  string `spss:"PRouteLonEW"`
+		DVLineName   string `spss:"DVLineName"`
+		DVPortName   string `spss:"DVPortName"`
+	}
+
+	dataset, err := FromSav("../testdata/ips1710bv2.sav", SpssFile{})
+	if err != nil {
+		panic(err)
+	}
+	defer dataset.Close()
+
+	err = dataset.ToCSV("out.csv")
+	if err != nil {
+		panic(err)
+	}
+
+	t.Logf("Dataset Size: %d\n", dataset.NumRows())
+	_ = dataset.Head(5)
+}

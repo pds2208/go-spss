@@ -67,22 +67,20 @@ int handle_value(int obs_index, readstat_variable_t *variable, readstat_value_t 
 
     switch (type) {
         case READSTAT_TYPE_STRING:
-            if (readstat_value_is_system_missing(value)) {
-                snprintf(buf, sav->buffer_size, "\"\"");
-            } else {
-                // This will be the only place we can expect a value larger than the
-                // existing SAV_BUFFER_SIZE
-                // We use snprintf as it's much faster
-                if (sav->buffer_size <= strlen(readstat_string_value(value)) + 1) {
-                    sav->buffer_size = strlen(readstat_string_value(value)) + SAV_BUFFER_SIZE + 1;
-                    sav->buffer = realloc(sav->buffer, sav->buffer_size);
-                }
-                char *str = (char *) readstat_string_value(value);
-                for (char* p = str; (p = strchr(p, ',')) ; ++p) {
-                    *p = ' ';
-                }
-                snprintf(buf, sav->buffer_size, "\"%s\"", readstat_string_value(value));
+
+            // This will be the only place we can expect a value larger than the
+            // existing SAV_BUFFER_SIZE
+            // We use snprintf as it's much faster
+            if (sav->buffer_size <= strlen(readstat_string_value(value)) + 1) {
+                sav->buffer_size = strlen(readstat_string_value(value)) + SAV_BUFFER_SIZE + 1;
+                sav->buffer = realloc(sav->buffer, sav->buffer_size);
             }
+            char *str = (char *) readstat_string_value(value);
+            for (char* p = str; (p = strchr(p, ',')) ; ++p) {
+                *p = ' ';
+            }
+            snprintf(buf, sav->buffer_size, "%s", readstat_string_value(value));
+
             add_to_data(buf, sav);
             break;
 
@@ -177,6 +175,9 @@ struct Data * parse_sav(const char *input_file) {
     if (error != READSTAT_OK) {
       return NULL;
     }
+
+    // remove the final newline character
+    sav_data->data[sav_data->used -1] = 0;
 
     return sav_data;
 
