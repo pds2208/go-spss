@@ -47,7 +47,6 @@ func Test_dataset(t *testing.T) {
 	i := len(spssFile)
 	t.Logf("Total Items: %d\n", i)
 
-	//t.Logf("Mean: %f\n", a)
 	t.Logf("Test finished - reader")
 
 }
