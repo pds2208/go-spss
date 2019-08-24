@@ -20,15 +20,11 @@ void source(const char *name) {
 /**
  * Wrapper for R function add1, defined in func.R.
  */
-void R_add1(int alen, int a[], int times) {
+void R_add1(int alen, int a[]) {
   // Allocate an R vector and copy the C array into it.
   SEXP arg;
-  PROTECT(arg = allocVector(INTSXP, alen + 1));
+  PROTECT(arg = allocVector(INTSXP, alen));
   memcpy(INTEGER(arg), a, alen * sizeof(int));
-
-  memcpy(INTEGER(arg[alen]), times, sizeof(int));
-
-
 
   // Setup a call to the R function
   SEXP add1_call;
@@ -61,10 +57,9 @@ void free_r() {
   Rf_endEmbeddedR(0);
 }
 
-int r_add_array(int n, int arg[], int times) {
-  initialise();
+int r_add_array(int n, int arg[]) {
   source("func.R");
-  R_add1(n, arg, times);
+  R_add1(n, arg);
 
   return (0);
 }
