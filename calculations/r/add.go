@@ -4,8 +4,8 @@ package r
 // #cgo windows LDFLAGS: -LC:/Users/pauld/scoop/apps/r/current/bin/curr_arch -lR -lRblas
 // #cgo darwin amd64 CFLAGS: -g -I/Library/Frameworks/R.framework/Resources/include
 // #cgo darwin LDFLAGS: -L/Library/Frameworks/R.framework/Resources/lib -lR -lRblas
-// #cgo linux amd64 CFLAGS: -I/usr/local/include -g
-// #cgo linux LDFLAGS: -L/usr/local/lib -lR -lRblas
+// #cgo linux amd64 CFLAGS: -I/usr/share/R/include -g
+// #cgo linux LDFLAGS: -L/usr/lib/R -lR
 // #include <stdlib.h>
 // #include "r_integration.h"
 import "C"
