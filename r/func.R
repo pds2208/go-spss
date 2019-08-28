@@ -1,7 +1,7 @@
 # This function is invoked by the C program r_test
 
-add1 <- function(a) {
+add1 <- function(a, b) {
   cat("R received: ", a, "\n");
-
-  return(a + 1)
+  cat("R received: ", b, "\n");
+  return(a + b)
 }

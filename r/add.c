@@ -26,9 +26,16 @@ void R_add1(int alen, int a[]) {
   PROTECT(arg = allocVector(INTSXP, alen));
   memcpy(INTEGER(arg), a, alen * sizeof(int));
 
+  SEXP arg1;
+  PROTECT(arg1 = NEW_INTEGER(5));
+  int *p_myint;
+  p_myint = INTEGER_POINTER(arg1);
+  p_myint[0] = 5;
+
   // Setup a call to the R function
   SEXP add1_call;
-  PROTECT(add1_call = lang2(install("add1"), arg));
+  PROTECT(add1_call = lang3(install("add1"), arg, arg1));
+
 
   // Execute the function
   int errorOccurred;
