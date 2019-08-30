@@ -8,6 +8,7 @@ require (
 	github.com/mattn/go-runewidth v0.0.4 // indirect
 	github.com/mattn/go-sqlite3 v1.11.0
 	github.com/olekukonko/tablewriter v0.0.1
+	github.com/senseyeio/roger v0.0.0-20180904151654-5a944f2c5ceb
 	github.com/stretchr/testify v1.4.0 // indirect
 	gopkg.in/mgo.v2 v2.0.0-20190816093944-a6b53ec6cb22 // indirect
 	upper.io/db.v3 v3.6.3+incompatible
