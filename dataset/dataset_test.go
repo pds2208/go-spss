@@ -2,16 +2,17 @@ package dataset
 
 import (
 	spss "go-spss"
+	"log"
 	"os"
 	"testing"
 )
 
-func setupTable() (dataset *Dataset, err error) {
+func setupTable(logger *log.Logger) (dataset *Dataset, err error) {
 	_ = os.Remove("LFS.db")
-	dataset, err = NewDataset("address")
+	dataset, err = NewDataset("address", logger)
 
 	if err != nil {
-		panic("Cannot create database")
+		logger.Panic("Cannot create database")
 	}
 
 	_ = dataset.AddColumn("Name", spss.STRING)
@@ -46,7 +47,8 @@ func setupTable() (dataset *Dataset, err error) {
 }
 
 func TestDeleteWhere(t *testing.T) {
-	dataset, err := setupTable()
+	logger := log.New(os.Stdout, "LFS ", log.LstdFlags|log.Lshortfile)
+	dataset, err := setupTable(logger)
 	if err != nil {
 		panic(err)
 	}
@@ -68,7 +70,8 @@ func TestDeleteWhere(t *testing.T) {
 }
 
 func TestNumberRowsColumns(t *testing.T) {
-	dataset, err := setupTable()
+	logger := log.New(os.Stdout, "LFS ", log.LstdFlags|log.Lshortfile)
+	dataset, err := setupTable(logger)
 	if err != nil {
 		panic(err)
 	}
@@ -85,7 +88,8 @@ func TestNumberRowsColumns(t *testing.T) {
 }
 
 func TestDropByColumn(t *testing.T) {
-	dataset, err := setupTable()
+	logger := log.New(os.Stdout, "LFS ", log.LstdFlags|log.Lshortfile)
+	dataset, err := setupTable(logger)
 	if err != nil {
 		panic(err)
 	}
@@ -100,7 +104,9 @@ func TestDropByColumn(t *testing.T) {
 
 func TestMean(t *testing.T) {
 
-	dataset, err := setupTable()
+	logger := log.New(os.Stdout, "LFS ", log.LstdFlags|log.Lshortfile)
+
+	dataset, err := setupTable(logger)
 	if err != nil {
 		panic(err)
 	}
@@ -130,13 +136,20 @@ func TestReadSav(t *testing.T) {
 		DVPortName   string `spss:"DVPortName"`
 	}
 
-	dataset, err := FromSav("../testdata/ips1710bv2.sav", SpssFile{})
+	logger := log.New(os.Stdout, "LFS ", log.LstdFlags|log.Lshortfile)
+
+	d, err := NewDataset("test", logger)
 	if err != nil {
-		panic(err)
+		logger.Panic(err)
+	}
+
+	dataset, err := d.FromSav("../testdata/ips1710bv2.sav", SpssFile{})
+	if err != nil {
+		logger.Panic(err)
 	}
 	defer dataset.Close()
 
-	t.Logf("Dataset Size: %d\n", dataset.NumRows())
+	logger.Printf("dataset contains %d row(s)\n", dataset.NumRows())
 	_ = dataset.Head(5)
 }
 
@@ -154,15 +167,22 @@ func TestWriteCSV(t *testing.T) {
 		DVPortName   string `spss:"DVPortName"`
 	}
 
-	dataset, err := FromSav("../testdata/ips1710bv2.sav", SpssFile{})
+	logger := log.New(os.Stdout, "LFS ", log.LstdFlags|log.Lshortfile)
+
+	d, err := NewDataset("test", logger)
 	if err != nil {
-		panic(err)
+		logger.Panic(err)
+	}
+
+	dataset, err := d.FromSav("../testdata/ips1710bv2.sav", SpssFile{})
+	if err != nil {
+		logger.Panic(err)
 	}
 	defer dataset.Close()
 
 	err = dataset.ToCSV("out.csv")
 	if err != nil {
-		panic(err)
+		logger.Panic(err)
 	}
 
 	t.Logf("Dataset Size: %d\n", dataset.NumRows())

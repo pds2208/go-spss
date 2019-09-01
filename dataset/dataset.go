@@ -9,18 +9,17 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/olekukonko/tablewriter"
 	spss "go-spss"
+	"log"
 	"os"
 	"path/filepath"
 	"reflect"
 	"sync"
+	"time"
 	"upper.io/db.v3/lib/sqlbuilder"
 	"upper.io/db.v3/sqlite"
 )
 
 var globalLock = sync.Mutex{}
-
-func init() {
-}
 
 type Dataset struct {
 	tableName string
@@ -28,6 +27,7 @@ type Dataset struct {
 	DB        sqlbuilder.Database
 	conn      *sql.DB
 	mux       sync.Mutex
+	logger    *log.Logger
 }
 
 var settings = sqlite.ConnectionURL{
@@ -40,7 +40,8 @@ var settings = sqlite.ConnectionURL{
 	},
 }
 
-func NewDataset(name string) (*Dataset, error) {
+func NewDataset(name string, logger *log.Logger) (*Dataset, error) {
+
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
@@ -60,7 +61,7 @@ func NewDataset(name string) (*Dataset, error) {
 	}
 
 	mux := sync.Mutex{}
-	return &Dataset{name, nil, sess, conn, mux}, nil
+	return &Dataset{name, nil, sess, conn, mux, logger}, nil
 }
 
 func (d Dataset) Close() {
@@ -215,7 +216,7 @@ func (d Dataset) Mean(col string) (res float64, err error) {
 
 func (d Dataset) DropColumn(column string) (err error) {
 	/*
-		As sql lite can't Delete columns, we work around this by doing the following:
+		As Sqlite can't delete columns, we have work around this by doing the following:
 
 		1. start a transaction
 		2. create a temporary table as existing table minus the column we are dropping
@@ -380,7 +381,9 @@ func (d Dataset) ToCSV(fileName string) error {
 		return fmt.Errorf(" -> ToCSV: cannot open output csv file: %s", err)
 	}
 
-	defer f.Close()
+	defer func() {
+		_ = f.Close()
+	}()
 
 	orderedColumns := d.orderedColumns()
 
@@ -411,7 +414,11 @@ func (d Dataset) ToCSV(fileName string) error {
 
 	col := d.DB.Collection(d.tableName)
 	res := col.Find()
-	defer res.Close()
+
+	defer func() {
+		_ = res.Close()
+	}()
+
 	var dat map[string]interface{}
 
 	for res.Next(&dat) {
@@ -463,11 +470,36 @@ func (d Dataset) ToCSV(fileName string) error {
 	return nil
 }
 
-func FromSav(in string, out interface{}) (dataset Dataset, err error) {
+type fromFileFunc func(fileName string, out interface{}) (dataset Dataset, err error)
+
+func (d *Dataset) logLoad(from fromFileFunc) fromFileFunc {
+	return func(fileName string, out interface{}) (dataset Dataset, err error) {
+		startTime := time.Now()
+		res, err := from(fileName, out)
+		a := time.Now().Sub(startTime)
+		d.logger.Printf("file load processed in %s\n", a)
+		return res, err
+	}
+}
+
+func (d *Dataset) FromCSV(fileName string, out interface{}) (dataset Dataset, err error) {
+	return d.logLoad(d.readCSV)(fileName, out)
+}
+
+// TODO: Implement Me
+func (d *Dataset) readCSV(in string, out interface{}) (dataset Dataset, err error) {
+	return Dataset{}, nil
+}
+
+func (d *Dataset) FromSav(fileName string, out interface{}) (dataset Dataset, err error) {
+	return d.logLoad(d.readSav)(fileName, out)
+}
+
+func (d *Dataset) readSav(in string, out interface{}) (dataset Dataset, err error) {
 
 	var empty Dataset
 
-	// check out is a struct
+	// ensure out is a struct
 	if reflect.ValueOf(out).Kind() != reflect.Struct {
 		return empty, fmt.Errorf(" -> FromSav: %T is not a struct type", out)
 	}
@@ -484,10 +516,12 @@ func FromSav(in string, out interface{}) (dataset Dataset, err error) {
 	var extension = filepath.Ext(file)
 	var name = file[0 : len(file)-len(extension)]
 
-	d, er := NewDataset(name)
+	d, er := NewDataset(name, d.logger)
 	if er != nil {
 		return empty, fmt.Errorf(" -> FromSav: cannot create a new DataSet: %s", er)
 	}
+
+	d.logger.Println("starting SAV file import")
 
 	tx, err := d.DB.NewTx(nil)
 	if err != nil {
@@ -525,7 +559,6 @@ func FromSav(in string, out interface{}) (dataset Dataset, err error) {
 		if err != nil {
 			return empty, fmt.Errorf(" -> FromSav: cannot create column %s, of type %s", name, spssType)
 		}
-
 	}
 
 	headers := spssRows[0]
@@ -549,7 +582,6 @@ func FromSav(in string, out interface{}) (dataset Dataset, err error) {
 		if err != nil {
 			return empty, fmt.Errorf(" -> FromSav: cannot create row: %s", err)
 		}
-
 	}
 
 	err = tx.Commit()
