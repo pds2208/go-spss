@@ -1,4 +1,4 @@
-package r
+package rserve
 
 import (
 	"fmt"
